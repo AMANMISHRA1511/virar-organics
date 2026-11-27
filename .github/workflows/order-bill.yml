@@ -1,0 +1,14 @@
+name: Verify order bill PDF
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  pdf-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node --test backend/test/order-bill.test.js
