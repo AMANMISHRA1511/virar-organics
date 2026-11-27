@@ -25,7 +25,7 @@ test('multi-page document supports long orders and escaping',()=>{
  const many={...sample,items:Array.from({length:100},(_,i)=>({name:'Test (product) '+i,quantity:1,price:1}))};
  const content=makeOrderBillPdf(many).toString('ascii');
  assert.match(content,/\/Count [2-9]\d* \/Kids/);
- assert.match(content,/Test \\(product\\)/);
+ assert.ok(content.includes(String.raw`Test \(product\)`));
 });
 test('invalid orders are rejected',()=>{
  assert.throws(()=>makeOrderBillPdf({id:1}),/Invalid bill data/);
