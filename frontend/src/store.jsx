@@ -1558,7 +1558,7 @@ export function Checkout() {
                   <CreditCard size={24} />
                   <span>
                     <strong>Razorpay · TEST mode</strong>
-                    <small>Use test payment details. No real payment.</small>
+                    <small>Cards / Netbanking; UPI appears only if enabled by Razorpay. No real payment.</small>
                   </span>
                 </label>
               )}
@@ -2185,6 +2185,10 @@ export function MyOrderDetail() {
               : "You will open Razorpay Checkout in TEST mode. Use only test payment details."}
           </p>
           <p className="payment-modal-amount">{money(order.total)}</p>
+          {order.payment_method === "razorpay" && <p className="muted" role="status">
+            If UPI is missing in the TEST checkout, Razorpay has not enabled that payment method for this account.
+            You can test cards or netbanking without real money. Do not try an actual UPI transfer.
+          </p>}
           <FormError error={error} />
           {order.payment_method === "mock" ? (
             <div className="form-actions">

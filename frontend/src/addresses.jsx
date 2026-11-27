@@ -32,6 +32,45 @@ import {
   requestCurrentLocation,
 } from "./location";
 
+const INDIAN_STATES = [
+  "Andhra Pradesh",
+  "Arunachal Pradesh",
+  "Assam",
+  "Bihar",
+  "Chhattisgarh",
+  "Goa",
+  "Gujarat",
+  "Haryana",
+  "Himachal Pradesh",
+  "Jharkhand",
+  "Karnataka",
+  "Kerala",
+  "Madhya Pradesh",
+  "Maharashtra",
+  "Manipur",
+  "Meghalaya",
+  "Mizoram",
+  "Nagaland",
+  "Odisha",
+  "Punjab",
+  "Rajasthan",
+  "Sikkim",
+  "Tamil Nadu",
+  "Telangana",
+  "Tripura",
+  "Uttar Pradesh",
+  "Uttarakhand",
+  "West Bengal",
+  "Andaman and Nicobar Islands",
+  "Chandigarh",
+  "Dadra and Nagar Haveli and Daman and Diu",
+  "Delhi",
+  "Jammu and Kashmir",
+  "Ladakh",
+  "Lakshadweep",
+  "Puducherry"
+];
+
 export function AddressFields({
   value,
   onChange,
@@ -39,7 +78,10 @@ export function AddressFields({
   showDefault = false,
   disabled = false,
 }) {
-  const { user, config } = useStore();
+  const { user, config, settings } = useStore();
+  const allowedPincodes = [...new Set((settings.deliveryZones || []).flatMap(zone => zone.pincodes || []))].filter(pin => /^\d{6}$/.test(pin)).sort();
+  const knownPin = allowedPincodes.includes(String(value.pincode || ""));
+  const [manualPin, setManualPin] = useState(false);
   const dirty = useRef(new Set());
   const requestNumber = useRef(0);
   const lookupController = useRef(null);
@@ -292,25 +334,37 @@ export function AddressFields({
           autoComplete: "address-level2",
           maxLength: 100,
         })}
-        {field("state", "State", {
-          required: true,
-          autoComplete: "address-level1",
-          maxLength: 100,
-        })}
-        {field("pincode", "PIN code", {
-          required: true,
-          autoComplete: "postal-code",
-          inputMode: "numeric",
-          pattern: "[0-9]{6}",
-          maxLength: 6,
-          placeholder: "401303",
-        })}
-        {field("country", "Country", {
-          required: true,
-          autoComplete: "country-name",
-          maxLength: 100,
-          readOnly: true,
-        })}
+        <Field label="State / Union territory">
+          <select name="state" required value={value.state || ""} disabled={disabled}
+            autoComplete="address-level1" onChange={event => change("state", event.target.value)}>
+            <option value="">Select state</option>
+            {value.state && !INDIAN_STATES.includes(value.state) &&
+              <option value={value.state}>{value.state} (saved)</option>}
+            {INDIAN_STATES.map(state => <option key={state} value={state}>{state}</option>)}
+          </select>
+        </Field>
+        <Field label="PIN code" hint={allowedPincodes.length ? "Choose a serviced PIN or select Other PIN to enter it manually. Delivery availability is checked at checkout." : "Enter your six-digit Indian PIN code."}>
+          {allowedPincodes.length > 0 && <select aria-label="Serviced PIN codes" disabled={disabled}
+            value={manualPin || (value.pincode && !knownPin) ? "other" : (value.pincode || "")}
+            onChange={event => {
+              const next = event.target.value;
+              setManualPin(next === "other");
+              change("pincode", next === "other" ? "" : next);
+            }}>
+            <option value="">Select your PIN</option>
+            {allowedPincodes.map(pin => <option value={pin} key={pin}>{pin}</option>)}
+            <option value="other">Other PIN (enter manually)</option>
+          </select>}
+          {(allowedPincodes.length === 0 || manualPin || (value.pincode && !knownPin)) &&
+            <input name="pincode" value={value.pincode || ""} onChange={event => change("pincode", event.target.value.replace(/\D/g, "").slice(0, 6))}
+              disabled={disabled} required inputMode="numeric" pattern="[0-9]{6}" maxLength={6}
+              autoComplete="postal-code" placeholder="6-digit PIN code"/>}
+        </Field>
+        <Field label="Country">
+          <select name="country" disabled={disabled} required value="India" onChange={() => change("country", "India")}>
+            <option value="India">India</option>
+          </select>
+        </Field>
       </div>
       {showDefault && (
         <label className="check-field address-default-check">

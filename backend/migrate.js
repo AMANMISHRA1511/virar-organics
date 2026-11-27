@@ -17,6 +17,28 @@ async function migrateBranding(c) {
   return { alreadyApplied: false, changedFields: result.changedFields };
 }
 
+
+// One-time, non-destructive rollout for explicitly requested Naigaon East
+// deliveries and maps. Other saved delivery zones and settings are preserved.
+async function migrateNaigaonDelivery(c) {
+  const [applied] = await rows('SELECT version FROM schema_migrations WHERE version=8 FOR UPDATE', [], c);
+  if (applied) return { alreadyApplied: true };
+  const [saved] = await rows('SELECT content FROM settings WHERE id=1 FOR UPDATE', [], c);
+  if (saved) {
+    const settings = json(saved.content, {});
+    const zones = Array.isArray(settings.deliveryZones) ? settings.deliveryZones : [];
+    if (zones.length && !zones.some(zone => Array.isArray(zone.pincodes) && zone.pincodes.includes('401208'))) {
+      zones.push({ name: 'Naigaon East', pincodes: ['401208'] });
+    }
+    // Map display can be changed again from Admin > Settings.
+    const updated = { ...settings, deliveryZones: zones, mapEnabled: true };
+    await rows('UPDATE settings SET content=? WHERE id=1', [JSON.stringify(updated)], c);
+    await queueEvent(c, 'settings', {}, ['public']);
+  }
+  await rows('INSERT IGNORE INTO schema_migrations(version) VALUES(8)', [], c);
+  return { alreadyApplied: false };
+}
+
 async function migratePostgres() {
   const connection = await db.getConnection();
   try {
@@ -31,6 +53,7 @@ async function migratePostgres() {
     await connection.runScript(await fs.readFile(new URL('./schema-postgres.sql', import.meta.url), 'utf8'));
     const branding = await migrateBranding(connection);
     await rows('INSERT IGNORE INTO schema_migrations(version) VALUES(7)', [], connection);
+    await migrateNaigaonDelivery(connection);
     await connection.commit();
     console.log('PostgreSQL schema v7 ready (non-destructive, repeatable).');
     console.log(JSON.stringify({ brandingMigration: 6, ...branding }));
@@ -71,6 +94,7 @@ try {
   await db.query('INSERT IGNORE INTO schema_migrations(version) VALUES(5)');
   const branding = await transaction(migrateBranding);
   await rows('INSERT IGNORE INTO schema_migrations(version) VALUES(7)');
+  await transaction(migrateNaigaonDelivery);
   console.log('MySQL schema v7 ready (non-destructive, repeatable).');
   console.log(JSON.stringify({ brandingMigration: 6, ...branding }));
  }

@@ -194,19 +194,36 @@ export function requestCurrentLocation({
               ),
             );
           }, 10000);
-          const response = await fetchImpl(url, {
-            credentials: "omit",
-            referrerPolicy: "no-referrer",
-            signal: requestController.signal,
+          // Prefer the app's same-origin lookup to avoid third-party browser
+          // blocking; only use the public provider directly if the proxy fails.
+          const proxy = "/api/location/reverse?" + new URLSearchParams({
+            latitude: String(coordinates.latitude),
+            longitude: String(coordinates.longitude),
           });
-          if (!response.ok)
-            throw new Error(
-              "The address lookup is temporarily unavailable. Enter your address manually.",
-            );
-          const suggestion = parseLocationSuggestion(
-            await response.json(),
-            coordinates,
-          );
+          let data;
+          try {
+            const response = await fetchImpl(proxy, {
+              credentials: "same-origin",
+              referrerPolicy: "no-referrer",
+              signal: requestController.signal,
+            });
+            if (!response.ok) throw new Error("Proxy unavailable");
+            data = await response.json();
+          } catch {
+            if (requestController.signal.aborted) throw new Error("The address lookup timed out. Enter your address manually.");
+            try {
+              const fallback = await fetchImpl(url, {
+                credentials: "omit",
+                referrerPolicy: "no-referrer",
+                signal: requestController.signal,
+              });
+              if (!fallback.ok) throw new Error("Provider unavailable");
+              data = await fallback.json();
+            } catch {
+              throw new Error("Your position was found but area lookup could not load. Enter the PIN, city and area manually, or retry.");
+            }
+          }
+          const suggestion = parseLocationSuggestion(data, coordinates);
           if (finished) return;
           finished = true;
           cleanup();

@@ -235,3 +235,10 @@ The first-Admin checks used disposable local databases. Payment webhooks used si
 - **Forgot Password**: the login page now links to `/forgot-password`. After you configure a real email provider, an unknown-or-existing account gets the same response. Reset links expire after 15 minutes, are single-use, and revoke previous sessions. Configure `SMTP_HOST`, `SMTP_PORT` (typically `587`), `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`, and `PASSWORD_RESET_PUBLIC_ORIGIN=https://virar-organics.netlify.app` as **Render environment variables only**. The email provider may have a free quota, but SMTP delivery must be configured and tested before the feature works online. With no SMTP provider configured the page explicitly says email recovery is unavailable.
 - You may use a reputable provider's free email quota where offered. No unlimited free SMS, unlimited free email, or zero-fee real card-processing is promised.
 - **Important**: Render Free PostgreSQL expires after 30 days. Back up or migrate the database before expiry.
+
+
+## Checkout, location and service-area notes
+
+- Razorpay TEST checkout is hosted by Razorpay. UPI Intent/QR availability is determined by Razorpay and merchant activation, not by this website. A missing UPI tab cannot be enabled by rendering a fake button. Card/netbanking test transactions can be used where available. Real-money live payments are not enabled.
+- Indian state and country fields are dropdowns. Serviced PIN codes are selectable; manual PIN entry remains available for other addresses, but server-side delivery-zone checks still apply. Admin controls allowed areas in **Settings > Delivery & maps**. A one-time v8 migration adds **Naigaon East (401208)** and enables maps without removing existing delivery zones or historical orders.
+- Geolocation uses the browser's user-approved position and a same-origin backend reverse-geocode proxy, with direct-provider fallback. It never assumes a flat or room number, and if the lookup is unavailable the customer can enter the address manually. The free public maps and lookup services may have outages or usage limits.

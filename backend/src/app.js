@@ -28,6 +28,26 @@ export async function createApp(){
  app.use('/uploads',createMediaRouter({directory:config.uploads,findUpload:async filename=>(await rows('SELECT filename,storage,content,mime_type FROM uploads WHERE filename=?',[filename]))[0]}));
  app.get('/api/health',wrap(async(req,res)=>{let database=true;try{await db.query('SELECT 1');}catch{database=false;}res.status(database?200:503).json({ok:database,status:database&&redisReady()&&realtimeReady()?'ready':'degraded',database,redis:redisReady(),realtime:realtimeReady(),notificationMode:config.notificationMode,paymentMode:config.paymentMode,workerEmbedded:config.workerEmbedded});}));
  app.get('/api/ready',wrap(async(req,res)=>{let database=true;try{await db.query('SELECT 1');}catch{database=false;}const ready=database&&redisReady()&&realtimeReady();res.status(ready?200:503).json({ready,database,redis:redisReady(),realtime:realtimeReady()});}));
+ // The customer's coordinates are ephemeral and sent only after their
+ // explicit location action. Logs record the route path, not the query.
+ app.get('/api/location/reverse',rateLimit('location',20,3600),wrap(async(req,res)=>{
+   if(config.locationProvider==='disabled')throw fail('Location lookup is unavailable.',503);
+   const latitude=Number(req.query.latitude), longitude=Number(req.query.longitude);
+   if(!Number.isFinite(latitude)||!Number.isFinite(longitude)||Math.abs(latitude)>90||Math.abs(longitude)>180)
+     throw fail('Invalid location coordinates.',422);
+   const remote=new URL('https://api.bigdatacloud.net/data/reverse-geocode-client');
+   remote.searchParams.set('latitude',String(latitude));
+   remote.searchParams.set('longitude',String(longitude));
+   remote.searchParams.set('localityLanguage','en');
+   let response;
+   try {response=await fetch(remote,{signal:AbortSignal.timeout(7000),headers:{Accept:'application/json'}});}
+   catch {throw fail('Area lookup is temporarily unavailable. Enter the address manually.',503);}
+   if(!response.ok)throw fail('Area lookup is temporarily unavailable. Enter the address manually.',503);
+   const result=await response.json();
+   if(!result||typeof result!=='object'||result.error||result.errorCode)
+     throw fail('Could not identify this location. Enter the address manually.',503);
+   res.json({countryCode:result.countryCode||'',countryName:result.countryName||'',postcode:result.postcode||'',city:result.city||'',locality:result.locality||'',principalSubdivision:result.principalSubdivision||''});
+ }));
  app.get('/api/config',(req,res)=>res.json({payment:paymentConfig(),notifications:{mode:config.notificationMode},location:{provider:config.locationProvider,enabled:config.locationProvider!=='disabled',attribution:'Powered by BigDataCloud'},maps:{enabled:config.mapEnabled,tileUrl:config.mapTileUrl,attribution:'© OpenStreetMap contributors'},redis:redisReady(),auth:{google:{enabled:Boolean(config.googleClientId),clientId:config.googleClientId||null},phone:{mode:config.phoneOtpMode,expiresIn:300,retryAfter:60},passwordReset:{enabled:passwordRecoveryReady()}}}));
  app.use('/api',authRouter,identityRouter,passwordRecoveryRouter,accountsRouter,inAppRouter,catalogueRouter,ordersRouter,leadsRouter);
  app.get('/api/admin/dashboard',admin,wrap(async(req,res)=>{
