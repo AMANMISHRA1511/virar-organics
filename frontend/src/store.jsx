@@ -1558,7 +1558,7 @@ export function Checkout() {
                   <CreditCard size={24} />
                   <span>
                     <strong>Razorpay · TEST mode</strong>
-                    <small>Cards / Netbanking; UPI appears only if enabled by Razorpay. No real payment.</small>
+                    <small>Cards, netbanking and other available TEST methods. UPI Intent / QR is shown only if Razorpay enables it for your account. No real payment.</small>
                   </span>
                 </label>
               )}
