@@ -3,6 +3,12 @@ import { spawn } from 'node:child_process';
 // Free web services have no pre-deploy command or deployment shell. Run the
 // non-destructive migration before opening HTTP; never run the development seed.
 const bootstrapRequested = process.env.BOOTSTRAP_ADMIN_ON_START === 'true';
+const recoveryRequested = process.env.RECOVER_ADMIN_ON_START === 'true';
+const recovery = {
+  accountEmail: process.env.RECOVER_ADMIN_EMAIL,
+  newPassword: process.env.RECOVER_ADMIN_PASSWORD
+};
+for (const key of ['RECOVER_ADMIN_ON_START', 'RECOVER_ADMIN_EMAIL', 'RECOVER_ADMIN_PASSWORD']) delete process.env[key];
 const bootstrap = { name: process.env.BOOTSTRAP_ADMIN_NAME, email: process.env.BOOTSTRAP_ADMIN_EMAIL, password: process.env.BOOTSTRAP_ADMIN_PASSWORD };
 for (const key of ['BOOTSTRAP_ADMIN_ON_START', 'BOOTSTRAP_ADMIN_NAME', 'BOOTSTRAP_ADMIN_EMAIL', 'BOOTSTRAP_ADMIN_PASSWORD']) delete process.env[key];
 let database;
@@ -34,9 +40,16 @@ try {
     }
   }
   bootstrap.password = undefined;
+  if (recoveryRequested) {
+    const { resetExistingAdminOnce } = await import('../src/reset-admin-once.js');
+    const result = await resetExistingAdminOnce(recovery);
+    recovery.newPassword = undefined;
+    console.log(JSON.stringify({ step: 'admin-recovery', completed: true, id: result.id }));
+  }
   await import('../server.js');
 } catch (error) {
   bootstrap.password = undefined;
+  recovery.newPassword = undefined;
   console.error(JSON.stringify({ level: 'error', message: 'Startup failed. Check database migrations and protected environment configuration.', code: /^[A-Z0-9_]{1,50}$/.test(error.code || '') ? error.code : 'STARTUP_CONFIGURATION' }));
   if (database) await database.end();
   process.exitCode = 1;
