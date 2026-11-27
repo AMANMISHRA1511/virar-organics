@@ -11,6 +11,7 @@ import { createMediaRouter } from './media.js';
 import { ordersRouter, webhookHandler, normalizeOrder } from './orders.js';
 import { leadsRouter } from './leads.js';
 import { identityRouter } from './identity.js';
+import { passwordRecoveryRouter, passwordRecoveryReady } from './password-recovery.js';
 import { accountsRouter } from './accounts.js';
 import { inAppRouter } from './in-app.js';
 import { redisReady, realtimeReady, rateLimit, audit } from './infra.js';
@@ -27,8 +28,8 @@ export async function createApp(){
  app.use('/uploads',createMediaRouter({directory:config.uploads,findUpload:async filename=>(await rows('SELECT filename,storage,content,mime_type FROM uploads WHERE filename=?',[filename]))[0]}));
  app.get('/api/health',wrap(async(req,res)=>{let database=true;try{await db.query('SELECT 1');}catch{database=false;}res.status(database?200:503).json({ok:database,status:database&&redisReady()&&realtimeReady()?'ready':'degraded',database,redis:redisReady(),realtime:realtimeReady(),notificationMode:config.notificationMode,paymentMode:config.paymentMode,workerEmbedded:config.workerEmbedded});}));
  app.get('/api/ready',wrap(async(req,res)=>{let database=true;try{await db.query('SELECT 1');}catch{database=false;}const ready=database&&redisReady()&&realtimeReady();res.status(ready?200:503).json({ready,database,redis:redisReady(),realtime:realtimeReady()});}));
- app.get('/api/config',(req,res)=>res.json({payment:paymentConfig(),notifications:{mode:config.notificationMode},location:{provider:config.locationProvider,enabled:config.locationProvider!=='disabled',attribution:'Powered by BigDataCloud'},maps:{enabled:config.mapEnabled,tileUrl:config.mapTileUrl,attribution:'© OpenStreetMap contributors'},redis:redisReady(),auth:{google:{enabled:Boolean(config.googleClientId),clientId:config.googleClientId||null},phone:{mode:config.phoneOtpMode,expiresIn:300,retryAfter:60}}}));
- app.use('/api',authRouter,identityRouter,accountsRouter,inAppRouter,catalogueRouter,ordersRouter,leadsRouter);
+ app.get('/api/config',(req,res)=>res.json({payment:paymentConfig(),notifications:{mode:config.notificationMode},location:{provider:config.locationProvider,enabled:config.locationProvider!=='disabled',attribution:'Powered by BigDataCloud'},maps:{enabled:config.mapEnabled,tileUrl:config.mapTileUrl,attribution:'© OpenStreetMap contributors'},redis:redisReady(),auth:{google:{enabled:Boolean(config.googleClientId),clientId:config.googleClientId||null},phone:{mode:config.phoneOtpMode,expiresIn:300,retryAfter:60},passwordReset:{enabled:passwordRecoveryReady()}}}));
+ app.use('/api',authRouter,identityRouter,passwordRecoveryRouter,accountsRouter,inAppRouter,catalogueRouter,ordersRouter,leadsRouter);
  app.get('/api/admin/dashboard',admin,wrap(async(req,res)=>{
   const [[counts],[leads],[inventory],[summary],recent,lowStockProducts]=await Promise.all([
     rows("SELECT SUM(CASE WHEN DATE(CONVERT_TZ(created_at,'+00:00','+05:30'))=DATE(CONVERT_TZ(UTC_TIMESTAMP(),'+00:00','+05:30')) THEN 1 ELSE 0 END) ordersToday,COALESCE(SUM(CASE WHEN status='Delivered' AND DATE_FORMAT(CONVERT_TZ(created_at,'+00:00','+05:30'),'%Y-%m')=DATE_FORMAT(CONVERT_TZ(UTC_TIMESTAMP(),'+00:00','+05:30'),'%Y-%m') THEN total ELSE 0 END),0) revenueMonth,COUNT(*) totalOrders FROM orders"),

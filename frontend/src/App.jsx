@@ -36,6 +36,7 @@ import { AdminLeads, AdminStaff } from "./admin-crm";
 import { AdminSettings } from "./admin-settings";
 import { AccountAddresses } from "./addresses";
 import { NotificationInbox } from "./notification-feed";
+import { ForgotPasswordPage, ResetPasswordPage } from "./password-recovery";
 import { AdminCustomers, AdminCustomerDetail } from "./admin-customers";
 class ErrorBoundary extends React.Component {
   state = { failed: false };
@@ -75,6 +76,8 @@ export default function App() {
               <Route path="cart" element={<CartPage />} />
               <Route path="login" element={<AuthPage />} />
               <Route path="register" element={<AuthPage register />} />
+              <Route path="forgot-password" element={<ForgotPasswordPage />} />
+              <Route path="reset-password" element={<ResetPasswordPage />} />
               <Route path="admin/login" element={<AuthPage staff />} />
               <Route path="bulk" element={<BulkEnquiry />} />
               <Route path="enquiry" element={<BulkEnquiry />} />

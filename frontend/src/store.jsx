@@ -1084,6 +1084,7 @@ export function AuthPage({ register = false, staff = false }) {
             <ArrowRight size={17} />
           </SubmitButton>
         </form>
+        {!register && <p className="auth-switch"><Link to="/forgot-password">Forgot password?</Link></p>}
         {!staff && (
           <>
             <div className="auth-divider">

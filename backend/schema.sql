@@ -100,3 +100,13 @@ CREATE TABLE IF NOT EXISTS in_app_notifications (
  FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY(order_id) REFERENCES orders(id), FOREIGN KEY(product_id) REFERENCES products(id) ON DELETE SET NULL,
  UNIQUE KEY unique_in_app_event(user_id,audience,event_key), INDEX idx_in_app_owner(user_id,audience,id), INDEX idx_in_app_unread(user_id,audience,read_at,id)
 ) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+ id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ user_id INT UNSIGNED NOT NULL,
+ token_hash CHAR(64) NOT NULL UNIQUE,
+ expires_at DATETIME NOT NULL,
+ consumed_at DATETIME NULL,
+ created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ FOREIGN KEY(user_id) REFERENCES users(id), INDEX idx_password_reset_user(user_id,created_at)
+) ENGINE=InnoDB;

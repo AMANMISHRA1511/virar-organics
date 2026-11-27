@@ -7,6 +7,7 @@ const insertKeys = Object.freeze({
   order_activity: 'id', leads: 'id', lead_notes: 'id', audit_log: 'id',
   payment_events: 'id', notifications: 'id', uploads: 'id',
   google_challenges: 'id', phone_verifications: 'id', account_addresses: 'id',
+  password_reset_tokens: 'id',
   catalogue_state: 'id', realtime_events: 'id', in_app_notifications: 'id',
 });
 const upsertKeys = Object.freeze({ settings: 'id', carts: 'user_id', uploads: 'filename' });
