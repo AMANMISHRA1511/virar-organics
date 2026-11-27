@@ -1,0 +1,28 @@
+name: mitti-meadow-tests
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: mitti_test
+      MYSQL_USER: mitti_test
+      MYSQL_PASSWORD: mitti-test-password
+      MYSQL_ROOT_PASSWORD: local-tests-root-only
+    ports:
+      - "127.0.0.1:${TEST_DB_PORT:-3310}:3306"
+    tmpfs:
+      - /var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 2s
+      timeout: 3s
+      retries: 45
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "127.0.0.1:${TEST_REDIS_PORT:-6381}:6379"
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 20

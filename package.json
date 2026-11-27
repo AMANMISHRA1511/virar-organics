@@ -1,0 +1,26 @@
+{
+  "name": "virar-organics",
+  "version": "2.1.1",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "setup": "node scripts/setup.mjs",
+    "start": "node scripts/dev.mjs",
+    "stop": "node scripts/stop.mjs",
+    "build": "npm --prefix frontend run build",
+    "check": "npm --prefix backend run check && npm --prefix frontend run lint",
+    "test:unit": "npm --prefix backend test",
+    "test:integration": "node scripts/test-system.mjs",
+    "test:browser": "node tests/browser.mjs",
+    "test:load": "node scripts/test-system.mjs --load-only",
+    "test:upgrade": "node scripts/test-system.mjs --upgrade-only",
+    "test:frontend-logic": "node --test tests/location.test.mjs tests/location-lifecycle.test.mjs tests/checkout-attempt.test.mjs",
+    "test:branding": "node scripts/test-system.mjs --branding-only"
+  },
+  "devDependencies": {
+    "playwright": "1.58.2"
+  }
+}

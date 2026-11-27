@@ -1,0 +1,858 @@
+{
+  "categories": [
+    [
+      "Rice & Grains",
+      "Everyday grains, from fragrant rice to wholesome pantry staples.",
+      "rice"
+    ],
+    [
+      "Atta & Millets",
+      "Flours and traditional grains for familiar home-cooked favourites.",
+      "atta-millets"
+    ],
+    [
+      "Dals & Pulses",
+      "Comforting lentils and beans for your everyday kitchen.",
+      "toor-dal"
+    ],
+    [
+      "Oils & Ghee",
+      "Cooking essentials with rich flavour and simple ingredients.",
+      "oils-ghee"
+    ],
+    [
+      "Spices & Masalas",
+      "Fragrant spices that bring a little warmth to every dish.",
+      "spices"
+    ],
+    [
+      "Honey & Sweeteners",
+      "Naturally sweet favourites for tea, treats and family recipes.",
+      "honey"
+    ],
+    [
+      "Nuts & Seeds",
+      "Crunch, texture and thoughtful additions for your pantry.",
+      "nuts-seeds"
+    ],
+    [
+      "Dry Fruits",
+      "Dried fruit favourites for snacking, baking and gifting.",
+      "dry-fruits"
+    ],
+    [
+      "Breakfast & Snacks",
+      "Easy mornings and satisfying little breaks.",
+      "breakfast"
+    ],
+    [
+      "Tea, Coffee & Drinks",
+      "Familiar brews and comforting cups for everyday rituals.",
+      "tea-coffee"
+    ],
+    [
+      "Fresh Vegetables",
+      "Seasonal vegetables for colourful everyday meals.",
+      "vegetables"
+    ],
+    [
+      "Fresh Fruits",
+      "A little seasonal sweetness for your fruit bowl.",
+      "fruits"
+    ]
+  ],
+  "products": [
+    [
+      "rice",
+      "Organic Basmati Rice",
+      "Long, fragrant grains for pulao, biryani and everyday meals. Store as appropriate for the product; sample category imagery is illustrative.",
+      145,
+      129,
+      40,
+      "1 kg",
+      0,
+      true
+    ],
+    [
+      "rice",
+      "Organic Sona Masoori Rice",
+      "Light rice for comforting everyday lunches. Store as appropriate for the product; sample category imagery is illustrative.",
+      120,
+      null,
+      44,
+      "1 kg",
+      0,
+      false
+    ],
+    [
+      "rice",
+      "Brown Rice",
+      "Whole-grain rice with a pleasantly nutty texture. Store as appropriate for the product; sample category imagery is illustrative.",
+      165,
+      149,
+      48,
+      "1 kg",
+      0,
+      false
+    ],
+    [
+      "rice",
+      "Red Rice",
+      "Earthy red rice for nourishing home-cooked bowls. Store as appropriate for the product; sample category imagery is illustrative.",
+      185,
+      null,
+      52,
+      "1 kg",
+      0,
+      false
+    ],
+    [
+      "rice",
+      "White Quinoa",
+      "Small, delicate grains for salads, soups and breakfast bowls. Store as appropriate for the product; sample category imagery is illustrative.",
+      249,
+      229,
+      56,
+      "500 g",
+      0,
+      false
+    ],
+    [
+      "wheat",
+      "Pearl Barley",
+      "A gentle, hearty addition to soups and grain salads. Store as appropriate for the product; sample category imagery is illustrative.",
+      110,
+      null,
+      60,
+      "500 g",
+      0,
+      false
+    ],
+    [
+      "wheat",
+      "Whole Wheat Grains",
+      "Whole wheat grains for home milling and traditional recipes. Store as appropriate for the product; sample category imagery is illustrative.",
+      85,
+      null,
+      40,
+      "1 kg",
+      1,
+      true
+    ],
+    [
+      "atta-millets",
+      "Stoneground Wheat Atta",
+      "Whole wheat flour for soft rotis and everyday baking. Store as appropriate for the product; sample category imagery is illustrative.",
+      95,
+      89,
+      44,
+      "1 kg",
+      1,
+      false
+    ],
+    [
+      "atta-millets",
+      "Ragi Flour",
+      "Fine finger millet flour for dosa, porridge and home recipes. Store as appropriate for the product; sample category imagery is illustrative.",
+      110,
+      null,
+      48,
+      "500 g",
+      1,
+      false
+    ],
+    [
+      "atta-millets",
+      "Bajra Flour",
+      "Pearl millet flour for rustic rotis and savoury dishes. Store as appropriate for the product; sample category imagery is illustrative.",
+      85,
+      null,
+      52,
+      "500 g",
+      1,
+      false
+    ],
+    [
+      "atta-millets",
+      "Jowar Flour",
+      "Sorghum flour for bhakri and versatile kitchen experiments. Store as appropriate for the product; sample category imagery is illustrative.",
+      95,
+      null,
+      56,
+      "500 g",
+      1,
+      false
+    ],
+    [
+      "atta-millets",
+      "Mixed Millet Grains",
+      "A selection of traditional millets for one-pot meals. Store as appropriate for the product; sample category imagery is illustrative.",
+      170,
+      155,
+      60,
+      "500 g",
+      1,
+      false
+    ],
+    [
+      "toor-dal",
+      "Organic Toor Dal",
+      "Golden split pigeon peas for dal, sambar and family favourites. Store as appropriate for the product; sample category imagery is illustrative.",
+      195,
+      179,
+      40,
+      "500 g",
+      2,
+      true
+    ],
+    [
+      "moong-dal",
+      "Whole Green Moong",
+      "Whole mung beans for soups, khichdi and home sprouting recipes. Store as appropriate for the product; sample category imagery is illustrative.",
+      135,
+      null,
+      44,
+      "500 g",
+      2,
+      false
+    ],
+    [
+      "toor-dal",
+      "Masoor Dal",
+      "Quick-cooking lentils for a comforting bowl of dal. Store as appropriate for the product; sample category imagery is illustrative.",
+      115,
+      null,
+      48,
+      "500 g",
+      2,
+      false
+    ],
+    [
+      "toor-dal",
+      "Chana Dal",
+      "Split Bengal gram for dal, snacks and traditional recipes. Store as appropriate for the product; sample category imagery is illustrative.",
+      105,
+      null,
+      52,
+      "500 g",
+      2,
+      false
+    ],
+    [
+      "moong-dal",
+      "Rajma Beans",
+      "Kidney beans for slow-cooked curries and hearty meals. Store as appropriate for the product; sample category imagery is illustrative.",
+      165,
+      149,
+      56,
+      "500 g",
+      2,
+      false
+    ],
+    [
+      "moong-dal",
+      "Kabuli Chickpeas",
+      "Creamy chickpeas for chole, salads and homemade hummus. Store as appropriate for the product; sample category imagery is illustrative.",
+      155,
+      null,
+      60,
+      "500 g",
+      2,
+      false
+    ],
+    [
+      "coconut-oil",
+      "Cold-pressed Coconut Oil",
+      "Mild coconut aroma for cooking and everyday kitchen rituals. Store as appropriate for the product; sample category imagery is illustrative.",
+      285,
+      null,
+      40,
+      "500 ml",
+      3,
+      true
+    ],
+    [
+      "oils-ghee",
+      "Cold-pressed Groundnut Oil",
+      "An everyday oil with a familiar nutty character. Store as appropriate for the product; sample category imagery is illustrative.",
+      240,
+      219,
+      44,
+      "500 ml",
+      3,
+      false
+    ],
+    [
+      "oils-ghee",
+      "Cold-pressed Sesame Oil",
+      "Distinctive sesame flavour for traditional recipes. Store as appropriate for the product; sample category imagery is illustrative.",
+      310,
+      null,
+      48,
+      "500 ml",
+      3,
+      false
+    ],
+    [
+      "oils-ghee",
+      "Mustard Oil",
+      "A bold-flavoured cooking staple for regional dishes. Store as appropriate for the product; sample category imagery is illustrative.",
+      210,
+      null,
+      52,
+      "500 ml",
+      3,
+      false
+    ],
+    [
+      "oils-ghee",
+      "Cultured Cow Ghee",
+      "Rich, fragrant ghee for finishing hot rotis and family favourites. Store as appropriate for the product; sample category imagery is illustrative.",
+      649,
+      599,
+      56,
+      "500 ml",
+      3,
+      false
+    ],
+    [
+      "oils-ghee",
+      "Sunflower Oil",
+      "A versatile light cooking oil for your kitchen shelf. Store as appropriate for the product; sample category imagery is illustrative.",
+      185,
+      null,
+      60,
+      "1 litre",
+      3,
+      false
+    ],
+    [
+      "turmeric",
+      "Golden Turmeric Powder",
+      "Bright colour and earthy warmth for your favourite dishes. Store as appropriate for the product; sample category imagery is illustrative.",
+      95,
+      null,
+      40,
+      "100 g",
+      4,
+      true
+    ],
+    [
+      "spices",
+      "Whole Cumin Seeds",
+      "Warm, aromatic seeds for tadka, rice and savoury recipes. Store as appropriate for the product; sample category imagery is illustrative.",
+      125,
+      115,
+      44,
+      "100 g",
+      4,
+      false
+    ],
+    [
+      "spices",
+      "Coriander Powder",
+      "A gentle, fragrant base for curries and everyday cooking. Store as appropriate for the product; sample category imagery is illustrative.",
+      80,
+      null,
+      48,
+      "100 g",
+      4,
+      false
+    ],
+    [
+      "spices",
+      "Whole Black Pepper",
+      "Bold peppercorns ready to grind fresh at the table. Store as appropriate for the product; sample category imagery is illustrative.",
+      165,
+      null,
+      52,
+      "100 g",
+      4,
+      false
+    ],
+    [
+      "spices",
+      "Kashmiri Chilli Powder",
+      "Colourful chilli powder for curries, marinades and gravies. Store as appropriate for the product; sample category imagery is illustrative.",
+      110,
+      null,
+      56,
+      "100 g",
+      4,
+      false
+    ],
+    [
+      "spices",
+      "Garam Masala",
+      "An aromatic finishing blend for home-cooked curries. Store as appropriate for the product; sample category imagery is illustrative.",
+      135,
+      125,
+      60,
+      "100 g",
+      4,
+      false
+    ],
+    [
+      "honey",
+      "Raw Forest Honey",
+      "A naturally sweet pantry favourite with floral depth. Not for infants under one year. Store as appropriate for the product; sample category imagery is illustrative.",
+      349,
+      299,
+      40,
+      "250 g",
+      5,
+      true
+    ],
+    [
+      "honey",
+      "Wildflower Honey",
+      "A floral honey for warm drinks, toast and simple desserts. Not for infants under one year. Store as appropriate for the product; sample category imagery is illustrative.",
+      299,
+      null,
+      44,
+      "250 g",
+      5,
+      false
+    ],
+    [
+      "jaggery",
+      "Natural Jaggery Cubes",
+      "Caramel notes for tea, desserts and traditional recipes. Store as appropriate for the product; sample category imagery is illustrative.",
+      110,
+      99,
+      48,
+      "500 g",
+      5,
+      false
+    ],
+    [
+      "jaggery",
+      "Jaggery Powder",
+      "An easy-to-measure sweetener for everyday home recipes. Store as appropriate for the product; sample category imagery is illustrative.",
+      115,
+      null,
+      52,
+      "500 g",
+      5,
+      false
+    ],
+    [
+      "jaggery",
+      "Coconut Sugar",
+      "A caramel-toned sweetener for baking and warm drinks. Store as appropriate for the product; sample category imagery is illustrative.",
+      210,
+      null,
+      56,
+      "250 g",
+      5,
+      false
+    ],
+    [
+      "dry-fruits",
+      "Date Syrup",
+      "A rich fruit-based sweetener for pancakes and breakfast bowls. Store as appropriate for the product; sample category imagery is illustrative.",
+      249,
+      null,
+      60,
+      "250 ml",
+      5,
+      false
+    ],
+    [
+      "nuts-seeds",
+      "Whole Almonds",
+      "Crunchy almonds for snacking, baking and breakfast bowls. Store as appropriate for the product; sample category imagery is illustrative.",
+      299,
+      279,
+      40,
+      "250 g",
+      6,
+      true
+    ],
+    [
+      "nuts-seeds",
+      "Walnut Kernels",
+      "Richly textured walnut pieces for salads and baking. Store as appropriate for the product; sample category imagery is illustrative.",
+      399,
+      369,
+      44,
+      "250 g",
+      6,
+      false
+    ],
+    [
+      "nuts-seeds",
+      "Whole Cashews",
+      "Smooth, creamy cashews for snacks and home-made sauces. Store as appropriate for the product; sample category imagery is illustrative.",
+      320,
+      null,
+      48,
+      "250 g",
+      6,
+      false
+    ],
+    [
+      "nuts-seeds",
+      "Pumpkin Seeds",
+      "A crisp little addition to salads, granola and snacks. Store as appropriate for the product; sample category imagery is illustrative.",
+      175,
+      null,
+      52,
+      "200 g",
+      6,
+      false
+    ],
+    [
+      "nuts-seeds",
+      "Sunflower Seeds",
+      "Versatile kernels for baking, topping and everyday crunch. Store as appropriate for the product; sample category imagery is illustrative.",
+      125,
+      null,
+      56,
+      "200 g",
+      6,
+      false
+    ],
+    [
+      "nuts-seeds",
+      "Chia Seeds",
+      "Small seeds to soak into puddings or stir through breakfast. Store as appropriate for the product; sample category imagery is illustrative.",
+      185,
+      169,
+      60,
+      "200 g",
+      6,
+      false
+    ],
+    [
+      "dry-fruits",
+      "Golden Raisins",
+      "Naturally sweet dried grapes for snacking and baking. Store as appropriate for the product; sample category imagery is illustrative.",
+      145,
+      null,
+      40,
+      "250 g",
+      7,
+      true
+    ],
+    [
+      "dry-fruits",
+      "Soft Dates",
+      "Rich, soft dates for simple snacks and home desserts. Store as appropriate for the product; sample category imagery is illustrative.",
+      199,
+      179,
+      44,
+      "250 g",
+      7,
+      false
+    ],
+    [
+      "dry-fruits",
+      "Dried Figs",
+      "Chewy dried figs with a gently sweet flavour. Store as appropriate for the product; sample category imagery is illustrative.",
+      349,
+      null,
+      48,
+      "250 g",
+      7,
+      false
+    ],
+    [
+      "dry-fruits",
+      "Dried Apricots",
+      "A tangy, fruity addition to snacks and baking. Store as appropriate for the product; sample category imagery is illustrative.",
+      310,
+      null,
+      52,
+      "250 g",
+      7,
+      false
+    ],
+    [
+      "dry-fruits",
+      "Dried Cranberries",
+      "Tart-sweet berries for salads, granola and quick snacks. Store as appropriate for the product; sample category imagery is illustrative.",
+      249,
+      null,
+      56,
+      "200 g",
+      7,
+      false
+    ],
+    [
+      "dry-fruits",
+      "Pitted Prunes",
+      "Soft dried plums for fruit compotes and pantry snacks. Store as appropriate for the product; sample category imagery is illustrative.",
+      229,
+      null,
+      60,
+      "250 g",
+      7,
+      false
+    ],
+    [
+      "breakfast",
+      "Rolled Oats",
+      "Whole rolled oats for porridge and overnight breakfast. Store as appropriate for the product; sample category imagery is illustrative.",
+      145,
+      129,
+      40,
+      "500 g",
+      8,
+      true
+    ],
+    [
+      "breakfast",
+      "Thick Poha",
+      "Flattened rice for a quick, comforting breakfast. Store as appropriate for the product; sample category imagery is illustrative.",
+      75,
+      null,
+      44,
+      "500 g",
+      8,
+      false
+    ],
+    [
+      "breakfast",
+      "Fruit & Nut Muesli",
+      "A breakfast mix with grains, fruit and nutty crunch. Store as appropriate for the product; sample category imagery is illustrative.",
+      320,
+      299,
+      48,
+      "400 g",
+      8,
+      false
+    ],
+    [
+      "breakfast",
+      "Millet Snack Mix",
+      "A lightly seasoned mix for tea-time breaks. Store as appropriate for the product; sample category imagery is illustrative.",
+      135,
+      null,
+      52,
+      "200 g",
+      8,
+      false
+    ],
+    [
+      "breakfast",
+      "Roasted Makhana",
+      "Light, crisp foxnuts for a simple savoury snack. Store as appropriate for the product; sample category imagery is illustrative.",
+      179,
+      null,
+      56,
+      "100 g",
+      8,
+      false
+    ],
+    [
+      "jaggery",
+      "Peanut Chikki",
+      "A traditional peanut-and-jaggery treat for small breaks. Store as appropriate for the product; sample category imagery is illustrative.",
+      95,
+      null,
+      60,
+      "200 g",
+      8,
+      false
+    ],
+    [
+      "tea-coffee",
+      "Green Tea",
+      "A gentle green tea for a quiet pause in the day. Store as appropriate for the product; sample category imagery is illustrative.",
+      149,
+      null,
+      40,
+      "50 g",
+      9,
+      true
+    ],
+    [
+      "tea-coffee",
+      "Assam Black Tea",
+      "Full-bodied loose-leaf tea for a familiar morning cup. Store as appropriate for the product; sample category imagery is illustrative.",
+      199,
+      179,
+      44,
+      "100 g",
+      9,
+      false
+    ],
+    [
+      "tea-coffee",
+      "Tulsi Herbal Infusion",
+      "A fragrant herbal brew for unhurried evenings. Store as appropriate for the product; sample category imagery is illustrative.",
+      175,
+      null,
+      48,
+      "50 g",
+      9,
+      false
+    ],
+    [
+      "tea-coffee",
+      "Ground Filter Coffee",
+      "Aromatic ground coffee for your home filter. Store as appropriate for the product; sample category imagery is illustrative.",
+      249,
+      229,
+      52,
+      "200 g",
+      9,
+      false
+    ],
+    [
+      "tea-coffee",
+      "Ginger Herbal Infusion",
+      "A warming ginger blend to brew and enjoy. Store as appropriate for the product; sample category imagery is illustrative.",
+      165,
+      null,
+      56,
+      "50 g",
+      9,
+      false
+    ],
+    [
+      "tea-coffee",
+      "Unsweetened Cocoa Powder",
+      "Rich cocoa for baking, warm drinks and home desserts. Store as appropriate for the product; sample category imagery is illustrative.",
+      199,
+      null,
+      60,
+      "100 g",
+      9,
+      false
+    ],
+    [
+      "spinach",
+      "Fresh Spinach Bunch",
+      "Tender green leaves for stir-fries, dal and soups. Wash before use. Store as appropriate for the product; sample category imagery is illustrative.",
+      45,
+      null,
+      24,
+      "250 g",
+      10,
+      true
+    ],
+    [
+      "tomatoes",
+      "Farm Fresh Tomatoes",
+      "Juicy tomatoes for salads, sauces and everyday cooking. Store as appropriate for the product; sample category imagery is illustrative.",
+      60,
+      null,
+      27,
+      "500 g",
+      10,
+      false
+    ],
+    [
+      "vegetables",
+      "Fresh Carrots",
+      "Crisp carrots for salads, soups and home-made snacks. Store as appropriate for the product; sample category imagery is illustrative.",
+      55,
+      null,
+      30,
+      "500 g",
+      10,
+      false
+    ],
+    [
+      "vegetables",
+      "Everyday Potatoes",
+      "Versatile potatoes for curries, roasting and comforting meals. Store as appropriate for the product; sample category imagery is illustrative.",
+      45,
+      null,
+      33,
+      "1 kg",
+      10,
+      false
+    ],
+    [
+      "vegetables",
+      "Red Onions",
+      "A kitchen staple for bases, salads and familiar recipes. Store as appropriate for the product; sample category imagery is illustrative.",
+      50,
+      null,
+      36,
+      "1 kg",
+      10,
+      false
+    ],
+    [
+      "vegetables",
+      "Fresh Cucumbers",
+      "Crisp, refreshing cucumbers for salads and raita. Store as appropriate for the product; sample category imagery is illustrative.",
+      40,
+      null,
+      39,
+      "500 g",
+      10,
+      false
+    ],
+    [
+      "fruits",
+      "Sweet Bananas",
+      "Familiar, gently sweet bananas for snacks and breakfast. Store as appropriate for the product; sample category imagery is illustrative.",
+      60,
+      null,
+      24,
+      "6 pieces",
+      11,
+      true
+    ],
+    [
+      "fruits",
+      "Crisp Apples",
+      "Crisp apples for fruit bowls and packed snacks. Store as appropriate for the product; sample category imagery is illustrative.",
+      149,
+      139,
+      27,
+      "500 g",
+      11,
+      false
+    ],
+    [
+      "fruits",
+      "Ripe Papaya",
+      "Seasonal papaya for a colourful fruit plate. Store as appropriate for the product; sample category imagery is illustrative.",
+      75,
+      null,
+      30,
+      "1 piece",
+      11,
+      false
+    ],
+    [
+      "fruits",
+      "Juicy Oranges",
+      "Bright citrus fruit for simple everyday snacking. Store as appropriate for the product; sample category imagery is illustrative.",
+      99,
+      null,
+      33,
+      "500 g",
+      11,
+      false
+    ],
+    [
+      "fruits",
+      "Pomegranates",
+      "Ruby-red arils to enjoy as a snack or salad topping. Store as appropriate for the product; sample category imagery is illustrative.",
+      145,
+      null,
+      36,
+      "500 g",
+      11,
+      false
+    ],
+    [
+      "fruits",
+      "Fresh Guavas",
+      "Fragrant guavas for a familiar seasonal fruit bowl. Store as appropriate for the product; sample category imagery is illustrative.",
+      65,
+      null,
+      39,
+      "500 g",
+      11,
+      false
+    ]
+  ]
+}

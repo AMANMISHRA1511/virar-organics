@@ -1,0 +1,27 @@
+node_modules/
+.netlify/
+__pycache__/
+*.pyc
+.env
+.env.*
+!.env.example
+!.env.test.example
+frontend/dist/
+.run/
+*.log
+backend/uploads/*
+!backend/uploads/.gitkeep
+tests/tmp/
+video/raw/
+video/hindi/work/
+# The requested GitHub repository excludes tutorial videos and Hindi guides.
+video/
+HINDI_*
+VIDEO_*
+*.mp4
+*.wav
+# Generated browser captures and private test/runtime output are not source.
+tests/results/browser/
+test-results/
+tests/.runtime/
+test-results/*failure*

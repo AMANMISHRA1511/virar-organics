@@ -1,0 +1,28 @@
+"$schema" = "https://open-api.netlify.com/netlify.schema.json"
+
+# The API, MySQL, Redis and persistent uploads run on the separate backend host.
+# BACKEND_ORIGIN is required in Netlify's build environment. It is not a secret.
+# The build generates dist/_redirects only after validating that HTTPS origin.
+[build]
+  base = "frontend"
+  publish = "dist"
+  command = "node ../scripts/netlify-build.mjs"
+
+[build.environment]
+  NODE_VERSION = "24"
+  NPM_FLAGS = "--include=dev"
+
+# These headers protect static frontend files. The backend is responsible for
+# headers on proxied API/uploads/Socket.IO responses, including Cache-Control.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Cache-Control = "no-cache"
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Cross-Origin-Opener-Policy = "same-origin-allow-popups"
+    Cross-Origin-Resource-Policy = "same-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(self)"
+    Strict-Transport-Security = "max-age=31536000"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' https://checkout.razorpay.com https://accounts.google.com; connect-src 'self' https://api.razorpay.com https://lumberjack.razorpay.com https://accounts.google.com https://api.bigdatacloud.net; frame-src https://api.razorpay.com https://checkout.razorpay.com https://accounts.google.com; img-src 'self' data: blob: https://*.tile.openstreetmap.org https://tile.openstreetmap.org; style-src 'self' 'unsafe-inline' https://accounts.google.com; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
