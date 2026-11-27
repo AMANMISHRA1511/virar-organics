@@ -37,6 +37,7 @@ import { AdminSettings } from "./admin-settings";
 import { AccountAddresses } from "./addresses";
 import { NotificationInbox } from "./notification-feed";
 import { ForgotPasswordPage, ResetPasswordPage } from "./password-recovery";
+import { OrderInvoicePage } from "./invoice";
 import { AdminCustomers, AdminCustomerDetail } from "./admin-customers";
 class ErrorBoundary extends React.Component {
   state = { failed: false };
@@ -69,6 +70,7 @@ export default function App() {
       <BrowserRouter>
         <StoreProvider>
           <Routes>
+            <Route path="invoice/:id" element={<OrderInvoicePage />} />
             <Route element={<StoreLayout />}>
               <Route index element={<Home />} />
               <Route path="shop" element={<Shop />} />

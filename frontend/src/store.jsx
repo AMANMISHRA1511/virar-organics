@@ -2020,6 +2020,7 @@ export function MyOrderDetail() {
           <span className="eyebrow">{orderNumber(order.id)}</span>
           <h2>Your good things, on their way</h2>
           <p>Placed {dateTime(order.created_at)}</p>
+          <Link className="button secondary small" to={`/invoice/${order.id}`}>View bill / Save PDF</Link>
         </div>
         <Badge>{order.status}</Badge>
       </div>
