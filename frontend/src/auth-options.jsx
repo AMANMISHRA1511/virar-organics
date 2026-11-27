@@ -179,18 +179,20 @@ export function GoogleIdentity({ purpose = "signin", onSuccess }) {
             type="button"
             className="button secondary full google-setup-button"
             onClick={() => setSetup(true)}
+            disabled={!import.meta.env.DEV}
           >
             <GoogleMark />
             {purpose === "link" ? "Link Google" : "Sign in with Google"}
-            <small>Setup needed</small>
+            <small>{import.meta.env.DEV ? "Setup needed" : "Unavailable"}</small>
           </button>
           <p className="google-setup-hint">
-            Google sign-in is included. Connect your Google client ID to enable
-            it.
+            {import.meta.env.DEV
+              ? "Google sign-in is included. Connect your Google client ID to enable it."
+              : "Google sign-in is currently unavailable. Continue with email and password."}
           </p>
         </>
       )}
-      {setup && (
+      {setup && import.meta.env.DEV && (
         <Modal title="Connect Google sign-in" onClose={() => setSetup(false)}>
           <p>
             This project supports real Google sign-in. It needs a Google OAuth
@@ -337,9 +339,9 @@ export function PhoneVerification() {
       )}
       {mode === "disabled" ? (
         <InlineNotice>
-          Phone verification is not configured. The store remains usable. Enable
-          simulated mode for free local testing or configure an SMS provider in
-          the backend environment.
+          {import.meta.env.DEV
+            ? "Phone verification is not configured. Enable simulated mode for local testing or configure an SMS provider."
+            : "Phone verification is currently unavailable. You can continue using your account and delivery phone number."}
         </InlineNotice>
       ) : (
         <>

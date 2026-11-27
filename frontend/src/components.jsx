@@ -165,9 +165,6 @@ export function StoreLayout() {
               {settings.footer ??
                 "Thoughtful food for everyday living. Pantry staples and seasonal favourites, from our store to your home."}
             </p>
-            <span className="footer-small">
-              A fictional organic store · Local development project
-            </span>
           </div>
           <div>
             <h3>Make yourself at home</h3>

@@ -2144,8 +2144,9 @@ export function MyOrderDetail() {
             )}
             {config.notifications?.mode !== "configured" && (
               <p className="muted">
-                Messages are simulated or skipped in this local demo. Nothing is
-                sent to your inbox or phone.
+                {config.notifications?.mode === "simulated"
+                  ? "These are practice messages. No email or SMS is sent."
+                  : "Email and SMS updates are currently unavailable. Check Your updates for order notifications."}
               </p>
             )}
           </section>
@@ -2484,7 +2485,7 @@ export function AboutPage() {
           <div className="prose">
             {(
               settings.about ??
-              `${settings.storeName || "Virar Organics"} is a fictional neighbourhood organic food store in Virar, Mumbai. We bring together familiar pantry staples and thoughtful everyday choices.\n\nThis project is built around a simple idea: choosing good food should feel easy. Browse the collection, ask us about bulk orders, and make yourself at home.`
+              `${settings.storeName || "Virar Organics"} is a neighbourhood organic food store in Virar, Mumbai. We bring together familiar pantry staples and thoughtful everyday choices.\n\nWe believe choosing good food should feel easy. Browse the collection, ask us about bulk orders, and make yourself at home.`
             )
               .split("\n")
               .filter(Boolean)
