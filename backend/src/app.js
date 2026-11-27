@@ -7,6 +7,7 @@ import { config, root, paymentConfig } from './config.js';
 import { db, rows, json } from './db.js';
 import { authRouter, csrfProtection, admin } from './auth.js';
 import { catalogueRouter } from './catalogue.js';
+import { createMediaRouter } from './media.js';
 import { ordersRouter, webhookHandler, normalizeOrder } from './orders.js';
 import { leadsRouter } from './leads.js';
 import { identityRouter } from './identity.js';
@@ -23,15 +24,15 @@ export async function createApp(){
  app.post('/api/payments/webhook',rateLimit('webhook',300,60),express.raw({type:'application/json',limit:'256kb'}),webhookHandler);
  app.use(express.json({limit:'1mb'}),cookieParser());
  app.use('/api',(req,res,next)=>{res.set('Cache-Control','no-store');next();},csrfProtection);
- app.use('/uploads',express.static(config.uploads,{dotfiles:'deny',immutable:true,maxAge:'30d',setHeaders:res=>res.set('X-Content-Type-Options','nosniff')}),(req,res)=>res.status(404).type('text/plain').send('Image not found.'));
+ app.use('/uploads',createMediaRouter({directory:config.uploads,findUpload:async filename=>(await rows('SELECT filename,storage,content,mime_type FROM uploads WHERE filename=?',[filename]))[0]}));
  app.get('/api/health',wrap(async(req,res)=>{let database=true;try{await db.query('SELECT 1');}catch{database=false;}res.status(database?200:503).json({ok:database,status:database&&redisReady()&&realtimeReady()?'ready':'degraded',database,redis:redisReady(),realtime:realtimeReady(),notificationMode:config.notificationMode,paymentMode:config.paymentMode,workerEmbedded:config.workerEmbedded});}));
  app.get('/api/ready',wrap(async(req,res)=>{let database=true;try{await db.query('SELECT 1');}catch{database=false;}const ready=database&&redisReady()&&realtimeReady();res.status(ready?200:503).json({ready,database,redis:redisReady(),realtime:realtimeReady()});}));
  app.get('/api/config',(req,res)=>res.json({payment:paymentConfig(),notifications:{mode:config.notificationMode},location:{provider:config.locationProvider,enabled:config.locationProvider!=='disabled',attribution:'Powered by BigDataCloud'},maps:{enabled:config.mapEnabled,tileUrl:config.mapTileUrl,attribution:'© OpenStreetMap contributors'},redis:redisReady(),auth:{google:{enabled:Boolean(config.googleClientId),clientId:config.googleClientId||null},phone:{mode:config.phoneOtpMode,expiresIn:300,retryAfter:60}}}));
  app.use('/api',authRouter,identityRouter,accountsRouter,inAppRouter,catalogueRouter,ordersRouter,leadsRouter);
  app.get('/api/admin/dashboard',admin,wrap(async(req,res)=>{
   const [[counts],[leads],[inventory],[summary],recent,lowStockProducts]=await Promise.all([
-    rows("SELECT SUM(DATE(CONVERT_TZ(created_at,'+00:00','+05:30'))=DATE(CONVERT_TZ(UTC_TIMESTAMP(),'+00:00','+05:30'))) ordersToday,COALESCE(SUM(CASE WHEN status='Delivered' AND DATE_FORMAT(CONVERT_TZ(created_at,'+00:00','+05:30'),'%Y-%m')=DATE_FORMAT(CONVERT_TZ(UTC_TIMESTAMP(),'+00:00','+05:30'),'%Y-%m') THEN total ELSE 0 END),0) revenueMonth,COUNT(*) totalOrders FROM orders"),
-    rows("SELECT SUM(status='New') newLeads,SUM(followup<=DATE(CONVERT_TZ(UTC_TIMESTAMP(),'+00:00','+05:30')) AND status NOT IN ('Converted','Lost')) todayFollowups FROM leads"),
+    rows("SELECT SUM(CASE WHEN DATE(CONVERT_TZ(created_at,'+00:00','+05:30'))=DATE(CONVERT_TZ(UTC_TIMESTAMP(),'+00:00','+05:30')) THEN 1 ELSE 0 END) ordersToday,COALESCE(SUM(CASE WHEN status='Delivered' AND DATE_FORMAT(CONVERT_TZ(created_at,'+00:00','+05:30'),'%Y-%m')=DATE_FORMAT(CONVERT_TZ(UTC_TIMESTAMP(),'+00:00','+05:30'),'%Y-%m') THEN total ELSE 0 END),0) revenueMonth,COUNT(*) totalOrders FROM orders"),
+    rows("SELECT SUM(CASE WHEN status='New' THEN 1 ELSE 0 END) newLeads,SUM(CASE WHEN followup<=DATE(CONVERT_TZ(UTC_TIMESTAMP(),'+00:00','+05:30')) AND status NOT IN ('Converted','Lost') THEN 1 ELSE 0 END) todayFollowups FROM leads"),
     rows('SELECT COUNT(*) lowStock FROM products WHERE active=1 AND stock<=5'),
     rows("SELECT (SELECT COUNT(*) FROM products WHERE active=1) products,(SELECT COUNT(*) FROM users WHERE role='customer') customers"),
     rows('SELECT o.*,u.name FROM orders o JOIN users u ON u.id=o.user_id ORDER BY o.id DESC LIMIT 6'),

@@ -1,9 +1,5 @@
 import { Router } from 'express';
 import multer from 'multer';
-import sharp from 'sharp';
-import fs from 'node:fs/promises';
-import path from 'node:path';
-import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { db, rows, json, transaction } from './db.js';
 import { config } from './config.js';
@@ -12,6 +8,7 @@ import { parse, wrap, fail, text, id, paged, money } from './util.js';
 import { audit, cachedCatalogue, catalogueChanged, catalogueRevision, flushRealtime, event, rateLimit } from './infra.js';
 import { stockNotice } from './in-app.js';
 import { defaultBrandSettings } from './branding.js';
+import { prepareImage, persistPreparedUploads, removeStoredUpload, MAX_UPLOAD_BYTES } from './media.js';
 export const catalogueRouter = Router();
 export const defaultSettings = { storeName: defaultBrandSettings.storeName, heading: 'Good food.\nCloser to nature.', description: 'Organic pantry staples and seasonal goodness, delivered with care in Virar.', promotion: 'Fresh choices for your everyday rituals', about: 'We bring thoughtfully sourced organic pantry staples and seasonal produce to homes in Virar. A fictional demonstration store built for learning.', contactEmail: defaultBrandSettings.contactEmail, contactPhone: '+91 90000 00000', address: 'Virar West, Mumbai, Maharashtra', logo: '', banner: '', favicon: '', footer: defaultBrandSettings.footer, social: { instagram: '', facebook: '' }, deliveryCharge: 35, minimumOrder: 100, openingHours: 'Monday–Saturday, 9 AM–8 PM', deliveryZones: [{ name: 'Virar', pincodes: ['401303','401305'] }], storeLat: 19.4559, storeLng: 72.8114, mapEnabled: true, sections: { featured: true, categories: true, about: true } };
 export async function getSettings(executor = db) { const [record] = await rows('SELECT content FROM settings WHERE id=1', [], executor); return { ...defaultSettings, ...json(record?.content, {}) }; }
@@ -61,12 +58,35 @@ const settingsSchema=z.object({storeName:text(100,2),heading:text(150,2),descrip
 catalogueRouter.get('/admin/settings',admin,wrap(async(req,res)=>res.json(await getSettings())));
 const saveSettings=wrap(async(req,res)=>{const old=await getSettings();const input=parse(settingsSchema,{...old,...req.body,social:{...old.social,...req.body.social},sections:{...old.sections,...req.body.sections}});await transaction(async c=>{await ensureImages([input.logo,input.banner,input.favicon],c);await rows('INSERT INTO settings(id,content) VALUES(1,?) ON DUPLICATE KEY UPDATE content=VALUES(content)',[JSON.stringify(input)],c);await audit(req.user.id,'settings.updated','settings',1,{fields:Object.keys(req.body)},c);});event('settings',{},['public']);res.json(input);});
 catalogueRouter.post('/admin/settings',admin,saveSettings);catalogueRouter.put('/admin/settings',admin,saveSettings);
-const upload=multer({storage:multer.memoryStorage(),limits:{fileSize:5*1024*1024,files:8,fields:2,parts:10}});
+const upload=multer({storage:multer.memoryStorage(),limits:{fileSize:MAX_UPLOAD_BYTES,files:8,fields:2,parts:10}});
 catalogueRouter.post('/admin/upload',admin,rateLimit('uploads',30,60,true),upload.array('images',8),wrap(async(req,res)=>{
- if(!req.files?.length)throw fail('Choose at least one image.',422);const written=[];try{await fs.mkdir(config.uploads,{recursive:true});const prepared=[];for(const file of req.files){let meta;try{meta=await sharp(file.buffer,{limitInputPixels:40000000,failOn:'warning'}).metadata();}catch{throw fail('The file is not a valid image.',422);}if(!['jpeg','png','webp'].includes(meta.format)||meta.pages>1)throw fail('Choose a non-animated JPEG, PNG or WebP image.',422);const filename=randomUUID()+'.webp';const dest=path.join(config.uploads,filename);const output=await sharp(file.buffer,{limitInputPixels:40000000,failOn:'warning'}).rotate().resize({width:1800,height:1800,fit:'inside',withoutEnlargement:true}).webp({quality:85}).toFile(dest);written.push(dest);prepared.push({filename,url:'/uploads/'+filename,original:file.originalname.slice(0,200),...output});}await transaction(async c=>{for(const f of prepared)await rows('INSERT INTO uploads(filename,original_name,url,size_bytes,width,height,actor) VALUES(?,?,?,?,?,?,?)',[f.filename,f.original,f.url,f.size,f.width,f.height,req.user.id],c);await audit(req.user.id,'images.uploaded','uploads',null,{count:prepared.length},c);});res.status(201).json(prepared.map(f=>f.url));}catch(error){await Promise.all(written.map(p=>fs.unlink(p).catch(()=>{})));throw error;}
+ if(!req.files?.length)throw fail('Choose at least one image.',422);
+ const prepared=[];
+ for(const file of req.files)prepared.push(await prepareImage(file));
+ await persistPreparedUploads(prepared,{
+  storage:config.uploadStorage,directory:config.uploads,
+  save:assets=>transaction(async c=>{
+   for(const f of assets)await rows('INSERT INTO uploads(filename,original_name,url,size_bytes,width,height,actor,storage,content,mime_type) VALUES(?,?,?,?,?,?,?,?,?,?)',[f.filename,f.original_name,f.url,f.size_bytes,f.width,f.height,req.user.id,f.storage,f.content,f.mime_type],c);
+   await audit(req.user.id,'images.uploaded','uploads',null,{count:assets.length},c);
+  }),
+ });
+ res.status(201).json(prepared.map(f=>f.url));
 }));
-catalogueRouter.get('/admin/uploads',admin,wrap(async(req,res)=>res.json(await rows('SELECT * FROM uploads ORDER BY id DESC LIMIT 500'))));
-catalogueRouter.delete('/admin/uploads/:filename',admin,wrap(async(req,res)=>{const filename=parse(z.string().regex(/^[a-zA-Z0-9_-]+\.webp$/),req.params.filename);const url='/uploads/'+filename;await transaction(async c=>{const [asset]=await rows('SELECT * FROM uploads WHERE filename=? FOR UPDATE',[filename],c);if(!asset)throw fail('Image not found.',404);const references=await rows('SELECT id FROM products WHERE images LIKE ? UNION ALL SELECT id FROM categories WHERE image=? UNION ALL SELECT id FROM settings WHERE content LIKE ? UNION ALL SELECT id FROM order_items WHERE image=? LIMIT 1',[`%${url}%`,url,`%${url}%`,url],c);if(references.length)throw fail('This image is still used by a product, category, website setting or order. Remove those references first.',409);await rows('DELETE FROM uploads WHERE id=?',[asset.id],c);await audit(req.user.id,'image.deleted','upload',asset.id,{},c);});await fs.unlink(path.join(config.uploads,filename)).catch(e=>{if(e.code!=='ENOENT')console.warn(JSON.stringify({level:'warn',message:'Unused image file cleanup failed'}));});res.json({ok:true});}));
+catalogueRouter.get('/admin/uploads',admin,wrap(async(req,res)=>res.json(await rows('SELECT id,filename,original_name,url,size_bytes,width,height,actor,storage,mime_type,created_at FROM uploads ORDER BY id DESC LIMIT 500'))));
+catalogueRouter.delete('/admin/uploads/:filename',admin,wrap(async(req,res)=>{
+ const filename=parse(z.string().max(100).regex(/^[a-zA-Z0-9_-]+\.webp$/),req.params.filename),url='/uploads/'+filename;
+ const deleted=await transaction(async c=>{
+  const [asset]=await rows('SELECT id,filename,storage FROM uploads WHERE filename=? FOR UPDATE',[filename],c);
+  if(!asset)throw fail('Image not found.',404);
+  const references=await rows('SELECT id FROM products WHERE images LIKE ? UNION ALL SELECT id FROM categories WHERE image=? UNION ALL SELECT id FROM settings WHERE content LIKE ? UNION ALL SELECT id FROM order_items WHERE image=? LIMIT 1',[`%${url}%`,url,`%${url}%`,url],c);
+  if(references.length)throw fail('This image is still used by a product, category, website setting or order. Remove those references first.',409);
+  await rows('DELETE FROM uploads WHERE id=?',[asset.id],c);
+  await audit(req.user.id,'image.deleted','upload',asset.id,{},c);
+  return asset;
+ });
+ await removeStoredUpload(deleted,config.uploads).catch(()=>console.warn(JSON.stringify({level:'warn',message:'Unused image file cleanup failed'})));
+ res.json({ok:true});
+}));
 export async function availability(ids) {
   const unique=[...new Set(ids)];
   if(!unique.length)return [];

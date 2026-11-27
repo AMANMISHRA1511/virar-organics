@@ -17,7 +17,7 @@ const mysql = requireBackend('mysql2/promise');
 const bcrypt = requireBackend('bcryptjs');
 const database = process.env.TEST_DATABASE || process.env.DB_NAME || '';
 if (!/^[a-zA-Z][a-zA-Z0-9_]*_test$/.test(database)) throw Error('A disposable *_test database is required.');
-const pool = mysql.createPool({ host: process.env.DB_HOST || '127.0.0.1', port: Number(process.env.DB_PORT || 3308), user: process.env.DB_USER || 'root', password: process.env.DB_PASSWORD ?? '', database, connectionLimit: 6 });
+const pool = process.env.DB_CLIENT === 'postgres' ? (await import('../backend/src/db.js')).db : mysql.createPool({ host: process.env.DB_HOST || '127.0.0.1', port: Number(process.env.DB_PORT || 3308), user: process.env.DB_USER || 'root', password: process.env.DB_PASSWORD ?? '', database, connectionLimit: 6 });
 const sql = async (query, args = []) => (await pool.execute(query, args))[0];
 const tag = randomUUID().slice(0, 8), password = 'R8!' + randomBytes(24).toString('base64url');
 const baseEnv = { ...process.env, NODE_ENV: 'production', DB_NAME: database, JWT_SECRET: randomBytes(48).toString('hex'), PAYMENT_MODE: 'disabled', PHONE_OTP_MODE: 'disabled', NOTIFICATION_MODE: 'disabled', GOOGLE_CLIENT_ID: '', RATE_LIMIT_MULTIPLIER: '1', EMBEDDED_WORKER: 'false', HOST: '127.0.0.1', REDIS_PREFIX: 'virar-deploy-test-' + tag, ALLOWED_ORIGINS: 'https://store.example.test', LOCATION_PROVIDER: 'disabled', MAP_ENABLED: 'false' };
@@ -53,12 +53,12 @@ async function stopApi() {
   }
   child = undefined;
 }
-async function startApi(interval, timeout) {
+async function startApi(interval, timeout, { command = 'server.js', extraEnv = {} } = {}) {
   const port = Number(process.env.DEPLOY_TEST_API_PORT || 4140);
-  const env = { ...baseEnv, PORT: String(port), SOCKET_PING_INTERVAL_MS: String(interval), SOCKET_PING_TIMEOUT_MS: String(timeout) };
-  child = spawn(process.execPath, ['server.js'], { cwd: backend, env, stdio: ['ignore', 'pipe', 'pipe'] });
+  const env = { ...baseEnv, PORT: String(port), SOCKET_PING_INTERVAL_MS: String(interval), SOCKET_PING_TIMEOUT_MS: String(timeout), ...extraEnv };
+  child = spawn(process.execPath, [command], { cwd: backend, env, stdio: ['ignore', 'pipe', 'pipe'] });
   let output = ''; child.stdout.on('data', d => { output += d; }); child.stderr.on('data', d => { output += d; });
-  const end = Date.now() + 15000;
+  const end = Date.now() + 45000;
   while (Date.now() < end) {
     if (child.exitCode !== null) throw Error('Fixture API exited: ' + output);
     try { const response = await fetch(`http://127.0.0.1:${port}/api/ready`, { signal: AbortSignal.timeout(1000) }); if (response.ok) return port; } catch {}
@@ -167,4 +167,47 @@ test('Actual API polling survives two heartbeat cycles through a local 26-second
   await post('1');
   evidence.polling.proxyFixture = { pingInterval: info.pingInterval, pingTimeout: info.pingTimeout, proxyLimitMs: 26000, heartbeatDurationsMs: durations, proxyTimeouts, passed: true };
   await new Promise(resolve => proxy.close(resolve)); proxy = undefined; await stopApi();
+});
+
+
+test('Concurrent first catalogue imports create only zero-stock content and persistent images', { timeout: 60000 }, async () => {
+  const before = await counts();
+  const runImport = () => new Promise((resolve, reject) => {
+    const process = spawn(globalThis.process.execPath, ['scripts/import-catalogue.mjs'], { cwd: backend, env: baseEnv, stdio: ['ignore', 'pipe', 'pipe'] });
+    let output = ''; process.stdout.on('data', bytes => output += bytes); process.stderr.on('data', bytes => output += bytes);
+    process.once('error', reject); process.once('exit', code => resolve({ code, output }));
+  });
+  const results = await Promise.all([runImport(), runImport()]);
+  for (const result of results) assert.equal(result.code, 0, result.output);
+  assert.equal(results.filter(result => result.output.includes('"imported":true')).length, 1);
+  assert.equal(Number((await sql('SELECT COUNT(*) total FROM products'))[0].total), 72);
+  assert.equal(Number((await sql('SELECT COUNT(*) total FROM categories'))[0].total), 12);
+  assert.equal(Number((await sql('SELECT COUNT(*) total FROM products WHERE stock<>0'))[0].total), 0);
+  const after = await counts();
+  for (const field of ['users', 'orders', 'leads', 'notifications']) assert.equal(after[field], before[field]);
+  const uploads = await sql('SELECT storage,content,mime_type FROM uploads');
+  assert.equal(uploads.length, 20);
+  if (process.env.UPLOAD_STORAGE === 'database') for (const upload of uploads) { assert.equal(upload.storage, 'database'); assert.ok(Buffer.isBuffer(upload.content)); assert.equal(upload.mime_type, 'image/webp'); }
+  const [first] = await sql('SELECT id FROM products ORDER BY id LIMIT 1');
+  await sql('UPDATE products SET stock=3,price=123.45,sale_price=NULL WHERE id=?', [first.id]);
+  assert.equal((await runImport()).code, 0);
+  const [saved] = await sql('SELECT stock,price FROM products WHERE id=?', [first.id]);
+  assert.equal(Number(saved.stock), 3); assert.equal(Number(saved.price), 123.45);
+  evidence.tests.push('concurrent catalogue import: exactly72 products/12 categories/20 images, stock0, no accounts/orders/leads/messages, rerun preserves edits');
+});
+
+test('Free startup reruns migrations safely, preserves existing Admin and serves persisted images', { timeout: 60000 }, async () => {
+  const [admin] = await sql("SELECT id,password FROM users WHERE role='admin'");
+  const [upload] = await sql('SELECT url,content FROM uploads ORDER BY id LIMIT 1');
+  const port = await startApi(10000, 10000, { command: 'scripts/start-free.mjs', extraEnv: {
+    IMPORT_BUNDLED_CATALOGUE: 'true', BOOTSTRAP_ADMIN_ON_START: 'true',
+    BOOTSTRAP_ADMIN_NAME: 'Existing Admin Protection', BOOTSTRAP_ADMIN_EMAIL: `never-created-${tag}@example.test`, BOOTSTRAP_ADMIN_PASSWORD: password,
+  } });
+  const [saved] = await sql('SELECT password FROM users WHERE id=?', [admin.id]); assert.equal(saved.password, admin.password);
+  assert.equal((await sql("SELECT id FROM users WHERE email=?", [`never-created-${tag}@example.test`])).length, 0);
+  const response = await fetch(`http://127.0.0.1:${port}${upload.url}`);
+  assert.equal(response.status, 200); assert.match(response.headers.get('content-type'), /image\/webp/);
+  const bytes = Buffer.from(await response.arrayBuffer()); if (Buffer.isBuffer(upload.content)) assert.deepEqual(bytes, upload.content);
+  assert.ok(bytes.length > 100); await stopApi();
+  evidence.tests.push('free startup safely migrates, skips existing catalogue/Admin, preserves account password and serves stored image bytes');
 });

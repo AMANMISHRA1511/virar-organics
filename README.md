@@ -2,7 +2,7 @@
 
 Repository: [AMANMISHRA1511/virar-organics](https://github.com/AMANMISHRA1511/virar-organics).
 
-A connected organic grocery storefront, Admin studio and customer CRM built with React, Vite, Express, MySQL, Redis and Socket.IO. Customers can browse products, maintain an account basket, save delivery addresses and place orders. Administrators manage the same catalogue, stock, orders, website content and employee accounts.
+A connected organic grocery storefront, Admin studio and customer CRM built with React, Vite, Express, PostgreSQL/MySQL, Redis and Socket.IO. Customers can browse products, maintain an account basket, save delivery addresses and place orders. Administrators manage the same catalogue, stock, orders, website content and employee accounts.
 
 The source includes local setup helpers, deployment configuration and repeatable tests. A hosted installation requires the frontend, backend, database, Redis and persistent media storage; publishing static files alone does not run the complete store.
 
@@ -69,7 +69,7 @@ Bundled sample photographs are illustrative and may be shared across related dem
 
 ## Stock, addresses and live updates
 
-Adding to a basket does not reserve stock. Checkout locks inventory and commits the order, stock deduction and event records in one MySQL transaction. If two customers each request all ten remaining packs, only one order succeeds. Retrying the same checkout key/details returns the existing order; cancellation restores stock once.
+Adding to a basket does not reserve stock. Checkout locks inventory and commits the order, stock deduction and event records in one SQL transaction. If two customers each request all ten remaining packs, only one order succeeds. Retrying the same checkout key/details returns the existing order; cancellation restores stock once.
 
 Catalogue changes refresh connected screens, with reconnect, focus and periodic reconciliation. Network updates can arrive late; the database stock check remains authoritative. Pending online orders retain their reservation until eligible cancellation; automatic reservation expiry is not included.
 
@@ -97,61 +97,67 @@ Razorpay's publicly reachable HTTPS webhook is `/api/payments/webhook`; configur
 
 Push reviewed source to **GitHub's `main` branch first**, excluding secrets, dependencies, generated builds and local data. Connect both hosting services through their GitHub integration. These instructions prepare a deployment; they do not establish that a repository push or hosted deployment has completed.
 
-### Backend services and Render settings
+### Free Render deployment
 
-Use **one API instance**, MySQL 8.4 on a genuinely private network, persistent Redis with `noeviction`, and persistent uploads. **The MySQL connector has no TLS/CA configuration option.** Do not send database credentials across the public internet; a TLS-required external database needs separately implemented and verified connector support. Redis accepts `rediss://` where required.
+The included `render.yaml` uses **only Free plans** in Singapore: one public Node API, one PostgreSQL database and one private Key Value instance. There are no paid disks, private MySQL services, background workers or cron jobs. Render generates the authentication secret and supplies internal database/Redis connection strings. Secrets stay in the hosting environment.
 
-Render persistent disks require a paid service. The API, MySQL, Redis, backups and provider usage are not promised to be free; select an approved budget before provisioning. Keep related services on a compatible private network. [Render service setup](https://render.com/docs/web-services) · [Persistent disks](https://render.com/docs/disks).
+**This is a temporary free testing deployment, not permanent production hosting.** [Render's Free limits](https://render.com/docs/free):
 
-The included `render.yaml` defines one **Virar Organics / production** environment in Singapore with an API, a private MySQL 8.4 service, persistent Key Value, and separate upload/database disks. It generates secrets on Render and references them between services. It sets the storefront origin to `https://virar-organics.netlify.app`; update this non-secret value if the storefront domain changes. Blueprint previews are disabled.
+| Resource | Free limit and effect |
+| --- | --- |
+| API | Sleeps after 15 idle minutes; waking can take about a minute. 750 free instance hours per workspace per month. |
+| PostgreSQL | 1 GB; expires 30 days after creation. Export before expiry. No managed backups are included. |
+| Key Value | 25 MB and 50 connections; data is lost on restart. SQL remains authoritative for users, stock, orders, event outboxes and private notices. |
+| Media | WebP bytes are stored in PostgreSQL, so API restarts do not delete uploads. They still share the database's capacity and expiry. |
+| Email | Free web services block SMTP ports 25, 465 and 587. The default deployment does not send email/SMS. |
+| Quotas | Free plans do not remove bandwidth/build quotas. Without a payment method, exhausted quotas can suspend service. Do not add paid plans or automatic upgrades unintentionally. |
 
-Review the Blueprint plan before approving its first sync. The conditional minimum is **$26.75/month**, excluding tax, overage, backup storage and optional provider charges: API $7, MySQL $7, Key Value $10, 1 GB uploads $0.25, and 10 GB database disk $2.50. MySQL capacity under a 512 MB limit has not been verified on Render; if a 2 GB plan is needed, the corresponding baseline is $44.75/month. Do not upgrade automatically. [Current Render pricing](https://render.com/pricing).
-
-Create the Blueprint from this repository's `main` branch, review the resources and region, then approve the initial sync with automatic syncing enabled. The committed file by itself creates no resources. After approval, changes to the Blueprint can update infrastructure as well as code, so review future `render.yaml` diffs carefully. Wait for MySQL initialization before retrying an API migration that fails during the first deployment. A fresh database contains no Admin, products or uploaded media: use the protected first-Admin procedure below and configure the catalogue through the Admin panel. Never substitute the demonstration seed for production setup.
+Create the Blueprint from this repository's connected GitHub `main` branch, review that **all three resource plans are Free**, and apply it. Enable automatic syncing. Review future `render.yaml` changes because they can change infrastructure as well as code. Use the Git provider integration; a public repository URL alone does not enable continuous deployment. [Render deployments](https://render.com/docs/deploys).
 
 | Render Web Service setting | Value |
 | --- | --- |
-| Source | Connected GitHub repository; branch `main` |
 | Root directory / runtime | `backend` / Node.js 24 |
 | Build command | `npm ci --omit=dev` |
-| Pre-deploy command, where available | `npm run migrate` |
-| Start command | `npm start` |
+| Start command | `node scripts/start-free.mjs` |
 | Health check | `/api/ready` |
-| Disk mount | `/var/data` |
 | Auto-Deploy | **On Commit** |
+| Database / uploads | `DB_CLIENT=postgres`, `UPLOAD_STORAGE=database` |
+| Pool size | `DB_POOL_SIZE=4` |
+| Disk / pre-deploy command | None; Free services do not support these |
 
-Use the connected Git provider, not Render's unauthenticated public-repository-URL option, which does not enable automatic deploys. **After CI Checks Pass** is an alternative only after CI exists. [Render automatic deploys](https://render.com/docs/deploys).
+The start script runs non-destructive migrations, optionally imports the bundled catalogue and then starts the API. The first import adds 12 categories, 72 products and 20 illustrative images. **All initial stock is 0**: an Administrator must confirm actual quantities, prices, delivery fees/zones, contact details and product photographs before selling. Import creates no people, demo orders, leads or outbound messages. It never overwrites an existing catalogue or reimports a previously initialized catalogue after its products are removed.
 
-Use `backend/deployment.env.example` as the configuration template. Set:
+Use `backend/deployment.env.example` for environment names. Set the exact public frontend origin in `ALLOWED_ORIGINS` (`https://virar-organics.netlify.app` for this installation). `DATABASE_URL` must be Render's internal PostgreSQL URL; use TLS and certificate verification when configuring an external database. The existing MySQL mode remains available locally and on a separately configured private host. Do not transmit its credentials over a public plaintext connection.
 
-```dotenv
-NODE_ENV=production
-NODE_VERSION=24.22.3
-HOST=0.0.0.0
-UPLOAD_DIR=/var/data/uploads
-EMBEDDED_WORKER=true
-SOCKET_PING_INTERVAL_MS=10000
-SOCKET_PING_TIMEOUT_MS=10000
-PAYMENT_MODE=disabled
-PHONE_OTP_MODE=disabled
-NOTIFICATION_MODE=disabled
-MAP_ENABLED=false
-LOCATION_PROVIDER=disabled
-```
+Default external providers are disabled: Cash on Delivery, customer password accounts and SQL-backed private in-app updates work without provider credentials. Browser **Use current location** asks permission before requesting an address suggestion; flat/room details and manual correction remain available. Google, real SMS OTP and Razorpay TEST payments require their own configuration and verification. Free Render does not provide free SMS or payment processing.
 
-Render supplies `PORT`. Configure a strong `JWT_SECRET`, private `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `REDIS_URL`, an isolated `REDIS_PREFIX`, and exact frontend HTTPS `ALLOWED_ORIGINS`. Verify `TRUST_PROXY` against the actual forwarded-IP chain; never increase it blindly. Keep HTTP-only Secure cookies, CSRF and role checks enabled.
+### First Administrator on a Free service
 
-Before startup, migrate the intended database. If a pre-deploy step is unavailable, a controlled single-instance start command `npm run migrate && npm start` works but requires migration privileges. Never run local setup or the demonstration seed on a business database.
+A new deployment deliberately has **no default Admin password**. Free web services have no SSH/deployment shell. In **Render → virar-organics-api → Environment**, temporarily set:
 
-### One-time first Administrator
+| Variable | Value |
+| --- | --- |
+| `BOOTSTRAP_ADMIN_ON_START` | `true` |
+| `BOOTSTRAP_ADMIN_NAME` | Your name |
+| `BOOTSTRAP_ADMIN_EMAIL` | Your email address |
+| `BOOTSTRAP_ADMIN_PASSWORD` | A unique protected password, at least 16 characters and at most 72 UTF-8 bytes, using three character classes |
 
-After migrations, supply protected `BOOTSTRAP_ADMIN_EMAIL`, `BOOTSTRAP_ADMIN_NAME` and `BOOTSTRAP_ADMIN_PASSWORD` values. Use a unique password of at least 16 characters, at most 72 UTF-8 bytes, with three character classes. From the backend deployment shell:
+Choose **Save, rebuild and deploy**. Wait for the successful `admin-bootstrap` log entry, then remove all four bootstrap variables and redeploy. Sign in at the frontend's `/admin/login`. The password is hashed; bootstrap never prints it, changes an existing Admin or promotes an existing customer email. If that email already belongs to a customer, choose a different staff email. Create later employees through **Team & access**.
 
-```sh
-npm run bootstrap:admin
-```
+On a host with a shell, the explicit `npm run bootstrap:admin` command remains available with the same three account variables or `-- --password-stdin`. Never place passwords in command arguments, README, source files or GitHub. No public bootstrap HTTP endpoint exists.
 
-Alternatively pass the password from a protected source using `-- --password-stdin`. Never put it in command arguments or shell history. Remove bootstrap secrets afterward. Bootstrap refuses any existing Admin, never promotes a customer, and runs only when explicitly invoked. Create subsequent employees through **Team & access**.
+### VS Code और Admin: छोटा हिंदी गाइड
+
+1. ZIP extract करें या repository clone करें। VS Code में वह folder खोलें जिसमें `frontend`, `backend` और `package.json` हैं।
+2. Node.js 24 और Docker Desktop install करके Docker चालू करें। VS Code terminal में `node scripts/setup.mjs`, फिर `npm start` चलाएँ।
+3. Local store `http://localhost:5173` पर और Admin `http://localhost:5173/admin/login` पर खुलेगा। ऊपर दिए demo accounts केवल local अभ्यास के लिए हैं।
+4. Hosted site के पहले Admin के लिए ऊपर दिए Render Environment steps पूरे करें। किसी customer को अपने आप employee role नहीं मिलता।
+5. **Categories → Add category**, फिर **Products → Add product** खोलें। नाम, INR price, pack size, सही stock और images डालकर Save करें। Stock 0 या inactive product customer खरीद नहीं सकता।
+6. दूसरे browser/account से product देखें। Admin में stock बदलने और order बनने पर availability update होती है; checkout का database lock आखिरी stock को दो orders में बिकने से रोकता है।
+7. Customer **Create account** से अपना account बनाए। Address में **Use current location** चुनें, permission दें, area/PIN जाँचें और room/flat/building भरें। Saved addresses उसी customer के account और authorized CRM view में मिलते हैं।
+8. **Team & access** से Admin ही कर्मचारी बनाए। **Orders**, **Customers**, **CRM**, **Notifications** और **Website & settings** संबंधित काम के लिए हैं। In-app updates और provider email/SMS अलग हैं।
+9. Changes GitHub की `main` branch में push करें। Connected Render और Netlify अपने deployments बनाएँगे। Secrets केवल hosting Environment में डालें। Video और अतिरिक्त guide files repository में शामिल नहीं हैं।
+10. Free PostgreSQL की 30-दिन expiry से पहले data export करें। Free API सोने के बाद पहली request पर लगभग एक मिनट लग सकता है।
 
 ### Netlify settings
 
@@ -166,7 +172,7 @@ Import the same connected GitHub repository, select **production branch `main`**
 
 `netlify.toml` sets Node 24 and overrides conflicting dashboard settings. `BACKEND_ORIGIN` is non-secret but required: only a valid HTTPS origin, without credentials/path/query, is accepted. The generator places `/api`, `/uploads` and `/socket.io` proxies before the SPA fallback. Add the exact Netlify/custom frontend origin to the backend allowlist. Use separate staging backends for previews. [Netlify deploy configuration](https://docs.netlify.com/deploy/deploy-overview/).
 
-Netlify builds use same-origin Socket.IO **HTTP polling**, preserving cookies and CSRF. Its external proxy has a **26-second timeout**; the 10-second interval plus 10-second timeout profile fits below it. Slow uploads or backend cold starts can still fail. Multiple APIs require polling-session affinity and shared media; Redis alone is insufficient. [Proxy limits](https://docs.netlify.com/manage/routing/redirects/rewrites-proxies/).
+Netlify builds use same-origin Socket.IO **HTTP polling**, preserving cookies and CSRF. Its external proxy has a **26-second timeout**; the 10-second interval plus 10-second timeout profile fits below it. Safe GET/HEAD reads retry transient 502/503/504 and network failures up to four attempts while the API wakes; writes and uploads are never replayed automatically. Slow uploads or exhausted retries can still fail. Multiple APIs require polling-session affinity and shared media; Redis alone is insufficient. [Proxy limits](https://docs.netlify.com/manage/routing/redirects/rewrites-proxies/).
 
 After connection, pushes/merges to `main` trigger each platform's configured deployment independently. Keep frontend/API changes compatible during rollout. Verify proxied readiness, sign-in, Admin-only staff creation, uploads after restart, private updates and a controlled order before relying on the hosted store.
 
@@ -201,7 +207,7 @@ npm run test:integration
 npm run test:branding
 ```
 
-Integration tests use isolated Docker MySQL/Redis services and test databases. Keep ports 3310, 6381, 4100 and 4101 available. Never point destructive fixtures at business data. Browser checks require the running local demonstration store:
+Integration tests use isolated Docker MySQL/Redis services and test databases. For PostgreSQL, set `DB_CLIENT=postgres`, an isolated `DATABASE_URL` whose database ends in `_test`, `REDIS_URL`/`TEST_REDIS_URL`, and run `node scripts/test-system.mjs --existing-services`. PostgreSQL media checks use `UPLOAD_STORAGE=database`. Keep ports 3310, 6381, 4100 and 4101 available. Never point destructive fixtures at business data. Browser checks require the running local demonstration store:
 
 ```powershell
 npm ci
@@ -209,4 +215,13 @@ npx playwright install chromium
 npm run test:browser
 ```
 
-Browser tests create synthetic records. Test output distinguishes failures and skips; local checks do not prove hosted performance or external provider delivery. Back up MySQL and uploaded files together, test restoration separately, monitor readiness/queue failures, and review pending-payment reservations manually.
+Browser tests create synthetic records. Test output distinguishes failures and skips; local checks do not prove hosted performance or external provider delivery. Back up the chosen SQL database and any filesystem uploads together, test restoration separately, monitor readiness/queue failures, and review pending-payment reservations manually.
+
+
+### Local verification, 28 November 2026
+
+The Free deployment changes were checked against real PostgreSQL 18.6 and Oracle MySQL 8.4.11. Each engine completed all 13 system-test phases with no skipped phases: catalogue/account/RBAC flows, simultaneous checkout and idempotency, saved addresses, private events, bounded load, image persistence across API restarts, Redis outage/recovery, shared rate limits, a separate worker and notification retry/recovery.
+
+There were 55 passing backend unit checks, 5 additional real-PostgreSQL adapter/constraint/concurrency checks, 22 deployment/secret-guard/wake-request checks, and 9 production-mode bootstrap/import/startup checks. The backend unit command skips the 5 real-PostgreSQL cases unless their explicit integration-test environment is configured; those 5 were executed separately and passed. Each engine's system run also passed 93 named integration/frontend-logic checks. Syntax checks, frontend lint and production build passed.
+
+The first-Admin checks used disposable local databases. Payment webhooks used signed fixtures; phone OTP used explicit simulation; Google linking policy used trusted service-layer fixtures. A local SMTP fixture tested 4 failed attempts followed by a successful manual fifth attempt without forwarding anything externally. These results do not claim real Google authorization, SMS receipt, payment collection, external email delivery, or that a hosting deployment is currently healthy.

@@ -13,7 +13,7 @@ export function parseBootstrapAdmin(input) {
   return parse(z.object({ name: text(100, 2), email, password: bootstrapPassword }).strict(), input);
 }
 
-// This service has no HTTP route. It is called only by the explicit deployment CLI.
+// This service has no HTTP route. It is called only by the explicit deployment CLI or opted-in protected startup.
 export async function createFirstAdmin(input) {
   const account = parseBootstrapAdmin(input);
   const hashed = await bcrypt.hash(account.password, 12);

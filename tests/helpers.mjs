@@ -29,10 +29,15 @@ export class Client {
   async register(email, name = 'QA Customer') { await this.token(); const r = await this.request('/register', { method: 'POST', body: { name, email, phone: '+91 9000012345', password: 'TestCustomer123!' } }); assert.equal(r.status, 201, r.text); this.user = r.body; return r; }
   async ok(path, options = {}, statuses = [200, 201]) { const r = await this.request(path, options); assert.ok(statuses.includes(r.status), `${options.method || 'GET'} ${path}: ${r.status} ${r.text}`); return r.body; }
 }
+const dialect = process.env.DB_CLIENT || 'mysql';
+const testDatabase = dialect === 'postgres'
+  ? decodeURIComponent(new URL(process.env.DATABASE_URL).pathname.slice(1))
+  : process.env.TEST_DATABASE || process.env.DB_NAME || 'mitti_test';
+if (!/(?:_test|_qa)$/.test(testDatabase)) throw new Error('Integration tests require a dedicated database ending _test or _qa.');
 const testDatabasePassword = process.env.DB_PASSWORD ?? process.env.TEST_DB_PASSWORD;
-if (testDatabasePassword === undefined) throw new Error('Integration tests require an explicitly configured DB_PASSWORD or TEST_DB_PASSWORD. Use scripts/test-system.mjs or configure an isolated test database.');
-export const pool = mysql.createPool({ host: process.env.DB_HOST || '127.0.0.1', port: Number(process.env.DB_PORT || 3307), user: process.env.DB_USER || 'mitti', password: testDatabasePassword, database: process.env.TEST_DATABASE || process.env.DB_NAME || 'mitti_test', connectionLimit: 6, decimalNumbers: true, dateStrings: true });
-if (!/(?:_test|_qa)$/.test(pool.pool.config.connectionConfig.database)) throw new Error('Integration tests require a dedicated database ending _test or _qa.');
+if (dialect !== 'postgres' && testDatabasePassword === undefined) throw new Error('Integration tests require an explicitly configured DB_PASSWORD or TEST_DB_PASSWORD. Use scripts/test-system.mjs or configure an isolated test database.');
+export const pool = dialect === 'postgres' ? (await import('../backend/src/postgres.js')).createPostgresPool((await import('../backend/src/config.js')).config)
+  : mysql.createPool({ host: process.env.DB_HOST || '127.0.0.1', port: Number(process.env.DB_PORT || 3307), user: process.env.DB_USER || 'mitti', password: testDatabasePassword, database: testDatabase, connectionLimit: 6, decimalNumbers: true, dateStrings: true });
 export async function sql(query, params = []) { return (await pool.execute(query, params))[0]; }
 export const address = { name: 'QA Customer', phone: '+91 9000012345', line1: '1 Test Orchard Lane', line2: 'Synthetic test address', city: 'Virar', pincode: '401303', lat: 19.4559, lng: 72.8114 };
 export async function product(admin, overrides = {}) {

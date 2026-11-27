@@ -25,3 +25,6 @@ tests/results/browser/
 test-results/
 tests/.runtime/
 test-results/*failure*
+
+# Generated verification evidence stays outside the public source tree.
+tests/results/

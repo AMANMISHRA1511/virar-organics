@@ -14,7 +14,7 @@ test('Real database/Redis health and explicitly simulated development services',
   const r = await anonymous.request('/health'); assert.equal(r.status, 200, r.text);
   const ready = await anonymous.request('/ready'); assert.equal(ready.status, 200, ready.text);
   const cfg = await anonymous.ok('/config'); assert.equal(cfg.payment.mode, 'mock'); assert.equal(cfg.notifications.mode, 'simulated'); assert.equal(cfg.redis, true);
-  const [engine] = await sql('SELECT VERSION() version'); assert.match(engine.version, /MariaDB|MySQL|^8\./);
+  const [engine] = await sql('SELECT VERSION() version'); assert.match(engine.version, process.env.DB_CLIENT === 'postgres' ? /^PostgreSQL / : /MariaDB|MySQL|^8\./);
 });
 
 test('Seeded catalogue, real image files, pagination and sorting', async () => {

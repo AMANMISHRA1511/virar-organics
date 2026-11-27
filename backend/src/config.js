@@ -4,12 +4,15 @@ import { fileURLToPath } from 'node:url';
 export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 dotenv.config({ path: path.join(root, '.env'), quiet: true });
 const bool = (v, fallback = false) => v === undefined ? fallback : v === 'true';
+const dbClient = process.env.DB_CLIENT || 'mysql';
+const poolSize = Number(process.env.DB_POOL_SIZE || (dbClient === 'postgres' ? 4 : 12));
 export const config = {
   port: Number(process.env.PORT || 4000), host: process.env.HOST || '127.0.0.1', production: process.env.NODE_ENV === 'production',
   secret: process.env.JWT_SECRET || '', cookieName: 'session',
   origins: (process.env.ALLOWED_ORIGINS || 'http://localhost:5173,http://127.0.0.1:5173,http://localhost:4000,http://127.0.0.1:4000').split(',').map(x => x.trim()),
-  db: { host: process.env.DB_HOST || '127.0.0.1', port: Number(process.env.DB_PORT || 3306), user: process.env.DB_USER || 'mitti', password: process.env.DB_PASSWORD || '', database: process.env.DB_NAME || 'mitti', connectionLimit: Number(process.env.DB_POOL_SIZE || 12), connectTimeout: 10000, timezone: 'Z', decimalNumbers: true, dateStrings: ['DATE'], charset: 'utf8mb4' },
-  redisPrefix: process.env.REDIS_PREFIX || 'mitti', redisUrl: process.env.REDIS_URL || 'redis://127.0.0.1:6379', uploads: path.resolve(root, process.env.UPLOAD_DIR || 'uploads'),
+  dbClient, databaseUrl: process.env.DATABASE_URL || '',
+  db: { host: process.env.DB_HOST || '127.0.0.1', port: Number(process.env.DB_PORT || 3306), user: process.env.DB_USER || 'mitti', password: process.env.DB_PASSWORD || '', database: process.env.DB_NAME || 'mitti', connectionLimit: poolSize, connectTimeout: 10000, timezone: 'Z', decimalNumbers: true, dateStrings: ['DATE'], charset: 'utf8mb4' },
+  redisPrefix: process.env.REDIS_PREFIX || 'mitti', redisUrl: process.env.REDIS_URL || 'redis://127.0.0.1:6379', uploads: path.resolve(root, process.env.UPLOAD_DIR || 'uploads'), uploadStorage: process.env.UPLOAD_STORAGE || 'filesystem',
   paymentMode: process.env.PAYMENT_MODE || 'mock', razorpayId: process.env.RAZORPAY_KEY_ID || '', razorpaySecret: process.env.RAZORPAY_KEY_SECRET || '', webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET || '',
   googleClientId: process.env.GOOGLE_CLIENT_ID || '', phoneOtpMode: process.env.PHONE_OTP_MODE || 'simulated',
   notificationMode: process.env.NOTIFICATION_MODE || 'simulated', workerEmbedded: bool(process.env.EMBEDDED_WORKER, true),
@@ -19,6 +22,7 @@ export const config = {
   rateMultiplier: Number(process.env.RATE_LIMIT_MULTIPLIER || 1), trustProxy: Number(process.env.TRUST_PROXY || 0),
 };
 export function validateConfig() {
+  validateDatabaseConfig();
   if (config.secret.length < 32) throw new Error('JWT_SECRET must contain at least 32 characters. Copy .env.example and run setup.');
   const mapUrl=new URL(config.mapTileUrl);if(!['https:','http:'].includes(mapUrl.protocol)||(config.production&&mapUrl.protocol!=='https:'))throw new Error('MAP_TILE_URL must use HTTPS (HTTP allowed only in local development).');
   if (!['bigdatacloud','disabled'].includes(config.locationProvider)) throw new Error('LOCATION_PROVIDER must be bigdatacloud or disabled.');
@@ -34,6 +38,15 @@ export function validateConfig() {
   if (!Number.isInteger(config.rateMultiplier) || config.rateMultiplier < 1 || (config.production && config.rateMultiplier !== 1)) throw new Error('Rate limit multiplier is only for local tests.');
   for (const [name, value] of [['SOCKET_PING_INTERVAL_MS', config.socketPingInterval], ['SOCKET_PING_TIMEOUT_MS', config.socketPingTimeout]]) {
     if (!Number.isInteger(value) || value < 5000 || value > 60000) throw new Error(`${name} must be an integer between 5000 and 60000 milliseconds.`);
+  }
+}
+export function validateDatabaseConfig() {
+  if (!['mysql', 'postgres'].includes(config.dbClient)) throw new Error('DB_CLIENT must be mysql or postgres.');
+  if (!Number.isInteger(config.db.connectionLimit) || config.db.connectionLimit < 1 || (config.dbClient === 'postgres' && config.db.connectionLimit > 20)) throw new Error('DB_POOL_SIZE must be a positive integer (at most 20 for PostgreSQL; default 4).');
+  if (!['filesystem', 'database'].includes(config.uploadStorage)) throw new Error('UPLOAD_STORAGE must be filesystem or database.');
+  if (config.dbClient === 'postgres') {
+    let url; try { url = new URL(config.databaseUrl); } catch { throw new Error('PostgreSQL requires a valid DATABASE_URL.'); }
+    if (!['postgres:', 'postgresql:'].includes(url.protocol) || !url.hostname || url.pathname.length < 2) throw new Error('PostgreSQL requires a postgres:// or postgresql:// DATABASE_URL with a database name.');
   }
 }
 export function paymentConfig() { return { mode: config.paymentMode, keyId: config.paymentMode === 'razorpay' ? config.razorpayId : null }; }

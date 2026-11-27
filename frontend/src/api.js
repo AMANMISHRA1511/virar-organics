@@ -1,9 +1,10 @@
+import { wakeRequest } from "./wake-request.js";
 let csrfToken;
 let csrfPromise;
 export async function getCsrf(force = false) {
   if (csrfToken && !force) return csrfToken;
   if (!csrfPromise || force) {
-    csrfPromise = fetch("/api/csrf", { credentials: "same-origin" })
+    csrfPromise = wakeRequest("/api/csrf", { credentials: "same-origin" })
       .then(async (response) => {
         if (!response.ok)
           throw new Error(
@@ -32,7 +33,7 @@ export async function api(path, options = {}) {
     headers["Content-Type"] = "application/json";
   if (!["GET", "HEAD"].includes(method))
     headers["X-CSRF-Token"] = await getCsrf();
-  const response = await fetch(`/api${path}`, {
+  const response = await wakeRequest(`/api${path}`, {
     method,
     headers,
     credentials: "same-origin",
