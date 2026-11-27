@@ -103,6 +103,12 @@ Use **one API instance**, MySQL 8.4 on a genuinely private network, persistent R
 
 Render persistent disks require a paid service. The API, MySQL, Redis, backups and provider usage are not promised to be free; select an approved budget before provisioning. Keep related services on a compatible private network. [Render service setup](https://render.com/docs/web-services) · [Persistent disks](https://render.com/docs/disks).
 
+The included `render.yaml` defines one **Virar Organics / production** environment in Singapore with an API, a private MySQL 8.4 service, persistent Key Value, and separate upload/database disks. It generates secrets on Render and references them between services. It sets the storefront origin to `https://virar-organics.netlify.app`; update this non-secret value if the storefront domain changes. Blueprint previews are disabled.
+
+Review the Blueprint plan before approving its first sync. The conditional minimum is **$26.75/month**, excluding tax, overage, backup storage and optional provider charges: API $7, MySQL $7, Key Value $10, 1 GB uploads $0.25, and 10 GB database disk $2.50. MySQL capacity under a 512 MB limit has not been verified on Render; if a 2 GB plan is needed, the corresponding baseline is $44.75/month. Do not upgrade automatically. [Current Render pricing](https://render.com/pricing).
+
+Create the Blueprint from this repository's `main` branch, review the resources and region, then approve the initial sync with automatic syncing enabled. The committed file by itself creates no resources. After approval, changes to the Blueprint can update infrastructure as well as code, so review future `render.yaml` diffs carefully. Wait for MySQL initialization before retrying an API migration that fails during the first deployment. A fresh database contains no Admin, products or uploaded media: use the protected first-Admin procedure below and configure the catalogue through the Admin panel. Never substitute the demonstration seed for production setup.
+
 | Render Web Service setting | Value |
 | --- | --- |
 | Source | Connected GitHub repository; branch `main` |
