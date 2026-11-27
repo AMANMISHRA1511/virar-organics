@@ -246,7 +246,7 @@ The first-Admin checks used disposable local databases. Payment webhooks used si
 
 ## Customer bills and printable order invoices
 
-Every saved order has a private, printable bill at `/invoice/:id` (linked in both **Customer > Your orders > Order details** and **Admin > Orders > Order details**). The page reads the order snapshot from the authenticated `/api/orders/:id` endpoint: the server permits only that customer or an Admin. It displays line-item prices, INR total, delivery, order date, delivery address and the current payment/status flags. Use **Print / Save as PDF** and choose **Save as PDF** in the browser. This needs no paid PDF service or external invoice API and does not upload financial details to third-party PDF generators.
+Every saved order has a private, printable bill at `/invoice/:id` (linked in both **Customer > Your orders > Order details** and **Admin > Orders > Order details**). The page reads the order snapshot from the authenticated `/api/orders/:id` endpoint: the server permits only that customer or an Admin. It displays line-item prices, INR total, delivery, order date, delivery address and the current payment/status flags. Use **Download PDF** for an authenticated PDF file from `/api/orders/:id/bill.pdf` (with an attachment filename). **Print** remains an alternative. The server checks the signed-in customer's ownership or the administrator's role on every request; no public invoice URLs are created. This needs no paid PDF service or external invoice API and does not upload financial details to third-party PDF generators.
 
 **Accounting caveat:** The printable document is an **order bill**, not a GST tax invoice. No GST number, tax rate or tax amount is guessed. An unpaid Cash on Delivery order is explicitly marked as unpaid, and Razorpay TEST/mock payments are labeled as test/simulated. For statutory GST invoicing, configure valid seller tax information, line-item tax treatment and compliant numbering separately before using this for tax reporting.
 
@@ -258,3 +258,11 @@ The order bill page includes **Download PDF**, which creates a real PDF download
 UPI Intent and QR payment methods are controlled by Razorpay merchant/test-account availability. The store does not present a fake UPI payment method or mark an order paid without verified provider confirmation. To enable real UPI, complete Razorpay live activation and verify its supported payment methods and webhooks in the merchant dashboard. TEST credentials cannot collect real funds.
 
 Google OAuth requires a Web OAuth client ID set as `GOOGLE_CLIENT_ID` in the Render environment. Real SMS OTP requires a configured SMS provider, and email password reset requires verified SMTP credentials and a sender address. These are not automatically provided by the Razorpay plugin; do not enable mock phone verification in production.
+
+
+## Verification providers and UPI availability
+
+- Customer Google sign-in is built into the project but requires an OAuth Web client ID in the protected Render environment (`GOOGLE_CLIENT_ID`) and the Netlify origin allowed in Google Cloud. Google login remains disabled until configured. Employee accounts are only created by administrators.
+- Real phone OTP verification requires an SMS service and sender credentials. Production does not accept simulated codes as proof of phone ownership, and actual SMS is not necessarily free.
+- Forgot Password uses single-use, expiring links. SMTP credentials, sender address and the trusted `PASSWORD_RESET_PUBLIC_ORIGIN` must be configured on Render; email sending cannot work without a delivery provider.
+- Razorpay TEST Checkout controls whether the account offers UPI Intent/QR. UPI is not a separate fake payment method. Check Razorpay's enabled methods; real payments require live onboarding and may incur processing fees.

@@ -1558,7 +1558,7 @@ export function Checkout() {
                   <CreditCard size={24} />
                   <span>
                     <strong>Razorpay · TEST mode</strong>
-                    <small>Cards, netbanking and other available TEST methods. UPI Intent / QR is shown only if Razorpay enables it for your account. No real payment.</small>
+                    <small>Cards / Netbanking; UPI appears only if enabled by Razorpay. No real payment.</small>
                   </span>
                 </label>
               )}
@@ -2020,7 +2020,8 @@ export function MyOrderDetail() {
           <span className="eyebrow">{orderNumber(order.id)}</span>
           <h2>Your good things, on their way</h2>
           <p>Placed {dateTime(order.created_at)}</p>
-          <Link className="button secondary small" to={`/invoice/${order.id}`}>View bill / Save PDF</Link>
+          <Link className="button secondary small" to={`/invoice/${order.id}`}>View bill</Link>
+          <a className="button secondary small" href={`/api/orders/${order.id}/bill.pdf`}>Download PDF</a>
         </div>
         <Badge>{order.status}</Badge>
       </div>

@@ -10,6 +10,7 @@ import { audit, catalogueChanged, flushRealtime, rateLimit } from './infra.js';
 import { orderOutbox, pumpOutbox } from './notifications.js';
 import { checkoutAddressSchema } from './address-schema.js';
 import { stockNotice } from './in-app.js';
+import { makeOrderBillPdf } from './order-bill-pdf.js';
 export const ordersRouter=Router();
 export const normalizeOrder=o=>({...o,address:json(o.address,{}),subtotal:Number(o.subtotal),delivery_charge:Number(o.delivery_charge),total:Number(o.total),latitude:o.latitude==null?null:Number(o.latitude),longitude:o.longitude==null?null:Number(o.longitude),driver_lat:o.driver_lat==null?null:Number(o.driver_lat),driver_lng:o.driver_lng==null?null:Number(o.driver_lng),stock_restored:Boolean(o.stock_restored)});
 export async function getOrder(orderId,user){const [o]=await rows('SELECT o.*,u.name,u.email,u.phone FROM orders o JOIN users u ON u.id=o.user_id WHERE o.id=?',[orderId]);if(!o||user&&user.role!=='admin'&&o.user_id!==user.id)throw fail('Order not found.',404);const result=normalizeOrder(o);result.items=await rows('SELECT product_id,name,quantity,price,unit,image FROM order_items WHERE order_id=? ORDER BY id',[o.id]);result.timeline=await rows('SELECT a.id,a.status,a.detail,a.created_at,u.name actor_name FROM order_activity a LEFT JOIN users u ON u.id=a.actor WHERE a.order_id=? ORDER BY a.id',[o.id]);result.notifications=await rows('SELECT id,event_key,subject,channel,delivery_mode,status,attempts,error,created_at,sent_at FROM notifications WHERE order_id=? ORDER BY id',[o.id]);if(result.payment_method!=='cod'&&result.gateway_order_id&&result.payment_status!=='paid'&&result.status!=='Cancelled')result.checkout={mode:result.payment_method,keyId:result.payment_method==='razorpay'?config.razorpayId:null,gateway_order_id:result.gateway_order_id,amount:cents(result.total),currency:'INR',prefill:{name:result.name,email:result.email,contact:result.phone}};result.location={latitude:result.latitude,longitude:result.longitude,driver_lat:result.driver_lat,driver_lng:result.driver_lng,driver_source:result.driver_source,driver_updated_at:result.driver_updated_at};return result;}
@@ -47,6 +48,19 @@ ordersRouter.post('/orders',auth('customer'),rateLimit('checkout',20,60,true),wr
 ordersRouter.post('/orders/:id/payment',auth('customer'),rateLimit('payment-retry',10,60,true),wrap(async(req,res)=>res.json({checkout:await checkoutFor(id(req.params.id),req.user)})));
 ordersRouter.get('/orders',auth('customer'),wrap(async(req,res)=>{const data=await paged(req,db,'SELECT * FROM orders WHERE user_id=? ORDER BY id DESC','SELECT COUNT(*) total FROM orders WHERE user_id=?',[req.user.id]);data.items=data.items.map(normalizeOrder);res.json(data);}));
 ordersRouter.get('/orders/by-checkout-key/:key',auth('customer'),wrap(async(req,res)=>{const key=parse(z.string().min(8).max(100),req.params.key);const [record]=await rows('SELECT id FROM orders WHERE user_id=? AND idempotency_key=?',[req.user.id,key]);res.json({order:record?await getOrder(record.id,req.user):null});}));
+ordersRouter.get('/orders/:id/bill.pdf',auth('customer','admin'),wrap(async(req,res)=>{
+ const order=await getOrder(id(req.params.id),req.user);
+ const settings=await getSettings();
+ const pdf=makeOrderBillPdf(order,settings);
+ res.set({
+   'Content-Type':'application/pdf',
+   'Content-Disposition':'attachment; filename="Virar-Organics-Bill-VO-'+String(order.id).padStart(6,'0')+'.pdf"',
+   'Content-Length':String(pdf.length),
+   'Cache-Control':'private, no-store',
+   'X-Content-Type-Options':'nosniff'
+ });
+ res.status(200).end(pdf);
+}));
 ordersRouter.get('/orders/:id',auth('customer','admin'),wrap(async(req,res)=>res.json(await getOrder(id(req.params.id),req.user))));
 const transitions={Pending:['Processing','Cancelled'],Paid:['Processing','Cancelled'],Processing:['Shipped','Cancelled'],Shipped:['Delivered'],Delivered:[],Cancelled:[]};
 export async function changeOrder(orderId,input,actor,{customer=false}={}){

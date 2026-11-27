@@ -237,7 +237,7 @@ export function AdminOrderDetail() {
         eyebrow={orderNumber(order.id)}
         title={`An order for ${order.name?.split(" ")[0] || "your customer"}`}
         description={`Placed ${dateTime(order.created_at)} · ${order.payment_method === "mock" ? "Simulated online payment" : order.payment_method === "cod" ? "Cash on delivery" : "Razorpay TEST"}`}
-        actions={<><Badge>{order.status}</Badge><Link to={`/invoice/${order.id}`} className="button secondary small">View bill / Save PDF</Link></>}
+        actions={<><Badge>{order.status}</Badge><Link to={`/invoice/${order.id}`} className="button secondary small">View bill</Link><a href={`/api/orders/${order.id}/bill.pdf`} className="button secondary small">Download PDF</a></>}
       />
       <div className="editor-layout order-editor">
         <div>

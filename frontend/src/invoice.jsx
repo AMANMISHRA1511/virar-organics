@@ -1,5 +1,4 @@
-import React, { useEffect, useState } from "react";
-import { downloadOrderBill } from "./invoice-download";
+import React, { useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useResource } from "./hooks";
 import { useStore } from "./context";
@@ -8,7 +7,6 @@ import "./invoice.css";
 
 export function OrderInvoicePage() {
   const { id } = useParams();
-  const [downloadError, setDownloadError] = useState("");
   const { user, settings, authLoading } = useStore();
   const orderId = /^[1-9][0-9]*$/.test(id || "") ? id : "invalid";
   const { data: order, loading, error, reload } = useResource(
@@ -43,15 +41,13 @@ export function OrderInvoicePage() {
       <div className="invoice-tools">
         <Link to={back}>Back to order</Link>
         <div className="invoice-download-actions">
-          <button type="button" className="button primary" disabled={!show} onClick={() => {
-            setDownloadError("");
-            try { downloadOrderBill(order, settings); }
-            catch (error) { setDownloadError(error.message || "Download failed. Please retry."); }
-          }}>Download PDF</button>
-          <button type="button" className="button secondary" disabled={!show} onClick={() => window.print()}>Print</button>
+          {show ? <a className="button primary" href={`/api/orders/${orderId}/bill.pdf`}>Download PDF</a>
+            : <span className="muted">Sign in to download your bill.</span>}
+          <button type="button" className="button secondary" disabled={!show} onClick={() => window.print()}>
+            Print
+          </button>
         </div>
       </div>
-      {downloadError && <p className="invoice-message" role="alert">{downloadError}</p>}
       {authLoading || loading ? <p className="invoice-message">Loading your bill…</p>
       : error ? <div className="invoice-message" role="alert">
           <p>{error.message || "Bill could not be loaded. Please sign in to the correct account."}</p>
