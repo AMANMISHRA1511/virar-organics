@@ -28,7 +28,7 @@ function rupees(amount) {
   return 'Rs. '+(Number.isFinite(n)?n:0).toFixed(2);
 }
 export function makeOrderBillPdf(order,settings={}) {
-  if(!order||!Number.isSafeInteger(Number(order.id))||!Array.isArray(order.items))
+  if(!order||!Number.isSafeInteger(Number(order.id))||Number(order.id)<=0||!Array.isArray(order.items))
     throw new Error('Invalid bill data.');
   const reference='VO-'+String(order.id).padStart(6,'0');
   const address=order.address||{};
