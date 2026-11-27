@@ -1558,7 +1558,7 @@ export function Checkout() {
                   <CreditCard size={24} />
                   <span>
                     <strong>Razorpay · TEST mode</strong>
-                    <small>Cards / Netbanking; UPI appears only if enabled by Razorpay. No real payment.</small>
+                    <small>UPI / QR (if enabled by Razorpay), cards and netbanking. TEST mode — no real money.</small>
                   </span>
                 </label>
               )}
@@ -1936,6 +1936,14 @@ async function openRazorpay(order, checkout, storeName = "Virar Organics") {
       description: `${orderNumber(order.id)} · TEST payment`,
       order_id: checkout.gateway_order_id,
       prefill: checkout.prefill,
+      // Prioritise UPI/QR only if Razorpay enables it for this account.
+      // UPI Collect is deprecated; default options remain available.
+      config: { display: {
+        blocks: { upiPreferred: { name: "UPI / QR", instruments: [{ method: "upi" }] } },
+        sequence: ["block.upiPreferred"],
+        hide: [{ method: "upi", flows: ["collect"] }],
+        preferences: { show_default_blocks: true },
+      }},
       theme: { color: "#234b38" },
       handler: async (response) => {
         try {
