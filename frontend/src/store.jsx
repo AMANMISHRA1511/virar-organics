@@ -1563,10 +1563,19 @@ export function Checkout() {
                 </label>
               )}
               {paymentMode === "disabled" && (
-                <p className="muted">
-                  Online payments are not configured. Cash on delivery is
-                  available.
-                </p>
+                <>
+                  <label className="payment-option" aria-disabled="true" style={{ opacity: 0.65 }}>
+                    <input type="radio" name="payment" value="razorpay" disabled />
+                    <CreditCard size={24} />
+                    <span>
+                      <strong>Razorpay · Online payment (coming soon)</strong>
+                      <small>Temporarily unavailable. Secure payment setup is pending. Please choose Cash on Delivery.</small>
+                    </span>
+                  </label>
+                  <p className="muted" role="status">
+                    Razorpay will be enabled after secure test credentials and webhook verification are configured by the store administrator.
+                  </p>
+                </>
               )}
             </section>
           </div>
