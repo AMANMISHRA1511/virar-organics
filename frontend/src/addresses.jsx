@@ -81,6 +81,7 @@ export function AddressFields({
   const { user, config, settings } = useStore();
   const allowedPincodes = [...new Set((settings.deliveryZones || []).flatMap(zone => zone.pincodes || []))].filter(pin => /^\d{6}$/.test(pin)).sort();
   const pinServiceable = allowedPincodes.includes(String(value.pincode || ""));
+  const mapDetails = useRef(null);
   const dirty = useRef(new Set());
   const requestNumber = useRef(0);
   const lookupController = useRef(null);
@@ -221,6 +222,8 @@ export function AddressFields({
           <LocateFixed size={18} />
           {location.busy ? "Finding your location…" : "Use my current location"}
         </button>
+        {location.busy && <button type="button" className="button secondary" onClick={() => { requestNumber.current += 1; lookupController.current?.abort(); setLocation({ busy: false, message: "Location cancelled. Select a map pin or enter your address.", error: "" }); }}>Cancel location</button>}
+        <button type="button" className="button secondary" disabled={disabled} onClick={() => { if (mapDetails.current) { mapDetails.current.open = true; mapDetails.current.scrollIntoView({ block: "center", behavior: "smooth" }); } }}><MapPin size={18} /> Select location on map</button>
         <p>
           Location coordinates are used only when you ask to locate your address.
           Confirm the suggested PIN, city and area before saving.
@@ -380,7 +383,7 @@ export function AddressFields({
           <span>Use as my default delivery address</span>
         </label>
       )}
-      <details className="location-details">
+      <details ref={mapDetails} className="location-details">
         <summary>
           <MapPin size={17} />
           Review or adjust the delivery pin (optional)
