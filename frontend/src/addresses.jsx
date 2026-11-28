@@ -80,8 +80,7 @@ export function AddressFields({
 }) {
   const { user, config, settings } = useStore();
   const allowedPincodes = [...new Set((settings.deliveryZones || []).flatMap(zone => zone.pincodes || []))].filter(pin => /^\d{6}$/.test(pin)).sort();
-  const knownPin = allowedPincodes.includes(String(value.pincode || ""));
-  const [manualPin, setManualPin] = useState(false);
+  const pinServiceable = allowedPincodes.includes(String(value.pincode || ""));
   const dirty = useRef(new Set());
   const requestNumber = useRef(0);
   const lookupController = useRef(null);
@@ -220,8 +219,8 @@ export function AddressFields({
           {location.busy ? "Finding your location…" : "Use my current location"}
         </button>
         <p>
-          Your current location is sent to BigDataCloud to suggest your area and
-          PIN code. Please confirm the details.
+          Location coordinates are used only when you ask to locate your address.
+          Confirm the suggested PIN, city and area before saving.
         </p>
         {config.location?.enabled === false && (
           <p className="muted">
@@ -343,22 +342,15 @@ export function AddressFields({
             {INDIAN_STATES.map(state => <option key={state} value={state}>{state}</option>)}
           </select>
         </Field>
-        <Field label="PIN code" hint={allowedPincodes.length ? "Choose a serviced PIN or select Other PIN to enter it manually. Delivery availability is checked at checkout." : "Enter your six-digit Indian PIN code."}>
-          {allowedPincodes.length > 0 && <select aria-label="Serviced PIN codes" disabled={disabled}
-            value={manualPin || (value.pincode && !knownPin) ? "other" : (value.pincode || "")}
-            onChange={event => {
-              const next = event.target.value;
-              setManualPin(next === "other");
-              change("pincode", next === "other" ? "" : next);
-            }}>
-            <option value="">Select your PIN</option>
-            {allowedPincodes.map(pin => <option value={pin} key={pin}>{pin}</option>)}
-            <option value="other">Other PIN (enter manually)</option>
-          </select>}
-          {(allowedPincodes.length === 0 || manualPin || (value.pincode && !knownPin)) &&
-            <input name="pincode" value={value.pincode || ""} onChange={event => change("pincode", event.target.value.replace(/\D/g, "").slice(0, 6))}
-              disabled={disabled} required inputMode="numeric" pattern="[0-9]{6}" maxLength={6}
-              autoComplete="postal-code" placeholder="6-digit PIN code"/>}
+        <Field label="PIN code" hint="Enter any Indian six-digit PIN. Delivery coverage is checked separately at checkout.">
+          <input name="pincode" value={value.pincode || ""}
+            onChange={event => change("pincode", event.target.value.replace(/\D/g, "").slice(0, 6))}
+            disabled={disabled} required inputMode="numeric" pattern="[1-9][0-9]{5}" maxLength={6}
+            autoComplete="postal-code" placeholder="Enter 6-digit Indian PIN" />
+          {value.pincode?.length === 6 && allowedPincodes.length > 0 &&
+            <small role="status">{pinServiceable
+              ? "This PIN is currently serviceable."
+              : "You can save this address, but delivery to this PIN is not currently available."}</small>}
         </Field>
         <Field label="Country">
           <select name="country" disabled={disabled} required value="India" onChange={() => change("country", "India")}>
