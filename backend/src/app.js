@@ -35,6 +35,34 @@ export async function createApp(){
    const latitude=Number(req.query.latitude), longitude=Number(req.query.longitude);
    if(!Number.isFinite(latitude)||!Number.isFinite(longitude)||Math.abs(latitude)>90||Math.abs(longitude)>180)
      throw fail('Invalid location coordinates.',422);
+   // Optional server-side Google Maps Geocoding. Never expose API key in frontend.
+   if(config.googleMapsGeocodingKey) {
+     try {
+       const google=new URL('https://maps.googleapis.com/maps/api/geocode/json');
+       google.searchParams.set('latlng',latitude+','+longitude);
+       google.searchParams.set('key',config.googleMapsGeocodingKey);
+       google.searchParams.set('language','en');
+       const answer=await fetch(google,{signal:AbortSignal.timeout(6500)});
+       if(answer.ok) {
+         const result=await answer.json();
+         if(result.status==='OK'&&result.results?.length) {
+           const components=result.results.flatMap(x=>x.address_components||[]);
+           const get=(name,abbreviated=false)=>{
+             const item=components.find(x=>x.types?.includes(name));
+             return item ? (abbreviated?item.short_name:item.long_name) : '';
+           };
+           const suggestion={
+             countryCode:get('country',true),countryName:get('country'),
+             postcode:get('postal_code'),
+             city:get('locality')||get('administrative_area_level_3')||get('administrative_area_level_2'),
+             locality:get('sublocality_level_1')||get('sublocality')||get('neighborhood')||get('locality'),
+             principalSubdivision:get('administrative_area_level_1')
+           };
+           if(suggestion.countryCode&&suggestion.city) return res.json(suggestion);
+         }
+       }
+     } catch { /* Fall back to the free provider. */ }
+   }
    const remote=new URL('https://api.bigdatacloud.net/data/reverse-geocode-client');
    remote.searchParams.set('latitude',String(latitude));
    remote.searchParams.set('longitude',String(longitude));
@@ -48,7 +76,7 @@ export async function createApp(){
      throw fail('Could not identify this location. Enter the address manually.',503);
    res.json({countryCode:result.countryCode||'',countryName:result.countryName||'',postcode:result.postcode||'',city:result.city||'',locality:result.locality||'',principalSubdivision:result.principalSubdivision||''});
  }));
- app.get('/api/config',(req,res)=>res.json({payment:paymentConfig(),notifications:{mode:config.notificationMode},location:{provider:config.locationProvider,enabled:config.locationProvider!=='disabled',attribution:'Powered by BigDataCloud'},maps:{enabled:config.mapEnabled,tileUrl:config.mapTileUrl,attribution:'© OpenStreetMap contributors'},redis:redisReady(),auth:{google:{enabled:Boolean(config.googleClientId),clientId:config.googleClientId||null},phone:{mode:config.phoneOtpMode,expiresIn:300,retryAfter:60},passwordReset:{enabled:passwordRecoveryReady()},emailCode:{enabled:passwordRecoveryReady()}}}));
+ app.get('/api/config',(req,res)=>res.json({payment:paymentConfig(),notifications:{mode:config.notificationMode},location:{provider:config.googleMapsGeocodingKey?'google':config.locationProvider,enabled:config.locationProvider!=='disabled',attribution:config.googleMapsGeocodingKey?'Google Maps with BigDataCloud fallback':'BigDataCloud'},maps:{enabled:config.mapEnabled,tileUrl:config.mapTileUrl,attribution:'© OpenStreetMap contributors'},redis:redisReady(),auth:{google:{enabled:Boolean(config.googleClientId),clientId:config.googleClientId||null},phone:{mode:config.phoneOtpMode,expiresIn:300,retryAfter:60},passwordReset:{enabled:passwordRecoveryReady()},emailCode:{enabled:passwordRecoveryReady()}}}));
  app.use('/api',authRouter,identityRouter,passwordRecoveryRouter,accountsRouter,inAppRouter,catalogueRouter,ordersRouter,leadsRouter);
  app.get('/api/admin/dashboard',admin,wrap(async(req,res)=>{
   const [[counts],[leads],[inventory],[summary],recent,lowStockProducts]=await Promise.all([

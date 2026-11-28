@@ -17,7 +17,7 @@ export const config = {
   googleClientId: process.env.GOOGLE_CLIENT_ID || '', phoneOtpMode: process.env.PHONE_OTP_MODE || 'simulated',
   notificationMode: process.env.NOTIFICATION_MODE || 'simulated', workerEmbedded: bool(process.env.EMBEDDED_WORKER, true),
   socketPingInterval: Number(process.env.SOCKET_PING_INTERVAL_MS ?? 25000), socketPingTimeout: Number(process.env.SOCKET_PING_TIMEOUT_MS ?? 20000),
-  locationProvider: process.env.LOCATION_PROVIDER || 'bigdatacloud',
+  locationProvider: process.env.LOCATION_PROVIDER || 'bigdatacloud', googleMapsGeocodingKey: process.env.GOOGLE_MAPS_GEOCODING_KEY || '',
   mapEnabled: bool(process.env.MAP_ENABLED, true), mapTileUrl: process.env.MAP_TILE_URL || 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
   rateMultiplier: Number(process.env.RATE_LIMIT_MULTIPLIER || 1), trustProxy: Number(process.env.TRUST_PROXY || 0),
 };
