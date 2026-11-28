@@ -12,7 +12,7 @@ export const passwordRecoveryRouter = Router();
 const brevoReady = () => Boolean(
   process.env.BREVO_API_KEY &&
   process.env.BREVO_SENDER_EMAIL &&
-  /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(process.env.BREVO_SENDER_EMAIL)
+  /^[^@ ]+@[^@ ]+[.][^@ ]+$/.test(process.env.BREVO_SENDER_EMAIL)
 );
 const smtpReady = () => Boolean(
   process.env.SMTP_HOST && process.env.SMTP_FROM &&
