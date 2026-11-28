@@ -123,134 +123,128 @@ export function requestCurrentLocation({
   onCoordinates = () => {},
 }) {
   return new Promise((resolve, reject) => {
-    let finished = false;
-    let timer;
-    const requestController = new AbortController();
-    const cleanup = () => {
-      clearTimeout(timer);
+    if (signal?.aborted) {
+      const error = new Error("Location request cancelled.");
+      error.name = "AbortError";
+      reject(error);
+      return;
+    }
+    if (!geolocation?.getCurrentPosition) {
+      reject(new Error("Location is not available in this browser. Enter your address manually."));
+      return;
+    }
+    let settled = false;
+    let watchdog;
+    let activeFetch;
+    const finish = (error, result) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(watchdog);
+      activeFetch?.abort();
       signal?.removeEventListener("abort", abort);
-    };
-    const fail = (error) => {
-      if (!finished) {
-        finished = true;
-        cleanup();
-        reject(error);
-      }
+      if (error) reject(error);
+      else resolve(result);
     };
     const abort = () => {
-      requestController.abort();
-      const error = new Error("Location lookup was cancelled.");
+      const error = new Error("Location request cancelled.");
       error.name = "AbortError";
-      fail(error);
+      finish(error);
     };
-    if (signal?.aborted) {
-      abort();
-      return;
-    }
     signal?.addEventListener("abort", abort, { once: true });
-    if (!geolocation?.getCurrentPosition) {
-      fail(
-        new Error(
-          "This browser cannot share a location. Enter your address manually.",
-        ),
-      );
-      return;
-    }
+    // A hard deadline ensures the button always stops spinning even if the
+    // browser ignores its geolocation timeout or a provider hangs.
+    watchdog = setTimeout(() =>
+      finish(new Error("Location request took too long. Please enter the address manually or retry with device Location enabled.")),
+    40000);
     onPhase("permission");
-    geolocation.getCurrentPosition(
-      async (position) => {
-        if (finished) return;
-        try {
-          const coordinates = position?.coords;
-          if (
-            !Number.isFinite(coordinates?.latitude) ||
-            !Number.isFinite(coordinates?.longitude) ||
-            Math.abs(coordinates.latitude) > 90 ||
-            Math.abs(coordinates.longitude) > 180
-          )
-            throw new Error(
-              "The browser did not provide valid coordinates. Enter your address manually.",
-            );
-          if (
-            Number.isFinite(position.timestamp) &&
-            Date.now() - position.timestamp > 60000
-          )
-            throw new Error(
-              "The browser returned an older location. Request a fresh location or enter your address manually.",
-            );
-          onCoordinates({ latitude: coordinates.latitude, longitude: coordinates.longitude });
-          onPhase("lookup");
-          const url = new URL(
-            "https://api.bigdatacloud.net/data/reverse-geocode-client",
-          );
-          url.search = new URLSearchParams({
-            latitude: String(coordinates.latitude),
-            longitude: String(coordinates.longitude),
-            localityLanguage: "en",
-          }).toString();
-          // BigDataCloud's free reverse-geocode endpoint is designed for
-          // permission-based, device-originated browser requests, NOT servers.
-          // Try it first so a sleeping Render Free instance cannot delay it.
-          timer = setTimeout(() => {
-            requestController.abort();
-            fail(new Error("Location services did not respond. Your GPS pin was still found; please enter the area and PIN manually."));
-          }, 30000);
-          const proxy = "/api/location/reverse?" + new URLSearchParams({
-            latitude: String(coordinates.latitude),
-            longitude: String(coordinates.longitude),
-          });
-          let data;
-          try {
-            const direct = await fetchImpl(url, {
-              credentials: "omit",
-              signal: requestController.signal,
-              headers: { Accept: "application/json" },
-            });
-            if (!direct.ok) throw new Error("Direct reverse lookup unavailable");
-            data = await direct.json();
-            if (!data || data.error || data.errorCode || !data.countryCode) {
-              throw new Error("Direct reverse lookup returned incomplete data");
-            }
-          } catch {
-            if (requestController.signal.aborted) {
-              throw new Error("The location lookup timed out. Your GPS pin is available; please enter area and PIN manually.");
-            }
-            // Google Geocoding is available via this backend route only when
-            // a Google Maps API key has been explicitly configured there.
-            try {
-              const fallback = await fetchImpl(proxy, {
-                credentials: "same-origin",
-                signal: requestController.signal,
-                headers: { Accept: "application/json" },
-              });
-              if (!fallback.ok) throw new Error("Server lookup unavailable");
-              data = await fallback.json();
-            } catch {
-              throw new Error("We found your GPS position, but the free address service could not identify the area. Please enter your PIN, city and area manually.");
-            }
-          }
-          const suggestion = parseLocationSuggestion(data, coordinates);
-          if (finished) return;
-          finished = true;
-          cleanup();
-          resolve(suggestion);
-        } catch (error) {
-          fail(error);
-        }
-      },
-      (error) => {
-        if (finished) return;
-        fail(
-          new Error(
-            error.code === 1
-              ? "Location permission was denied. You can enter your full address below; no location lookup was made."
-              : error.code === 3
-                ? "The browser could not find your location in time. Enter the address manually, or try again."
-                : "Your current location could not be determined. Enter your address manually.",
-          ),
+
+    function positionAttempt(highAccuracy) {
+      return new Promise((success, failure) => {
+        geolocation.getCurrentPosition(
+          position => success(position),
+          error => failure(error),
+          {
+            enableHighAccuracy: highAccuracy,
+            maximumAge: highAccuracy ? 30000 : 300000,
+            timeout: highAccuracy ? 10000 : 9000,
+          },
         );
-      },
-      { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 },
-    );
+      });
+    }
+    async function fetchWithTimeout(url, settings, timeoutMs) {
+      activeFetch = new AbortController();
+      const controller = activeFetch;
+      const cancel = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const response = await fetchImpl(url, { ...settings, signal: controller.signal });
+        if (!response.ok) throw new Error("Address provider unavailable");
+        const data = await response.json();
+        if (!data || typeof data !== "object" || data.error || data.errorCode || !data.countryCode)
+          throw new Error("Address provider returned incomplete data");
+        return data;
+      } finally {
+        clearTimeout(cancel);
+        if (activeFetch === controller) activeFetch = null;
+      }
+    }
+
+    (async () => {
+      let position;
+      try {
+        // Fast coarse location first: Android network positioning often succeeds
+        // when waiting for a high-accuracy satellite fix times out indoors.
+        position = await positionAttempt(false);
+      } catch (error) {
+        if (error?.code === 1) {
+          throw new Error("Location permission is denied. Allow Location for Chrome and this website, or enter the address manually.");
+        }
+        onPhase("retry");
+        try {
+          position = await positionAttempt(true);
+        } catch (last) {
+          if (last?.code === 1)
+            throw new Error("Location permission is denied. Enable Location permission or enter the address manually.");
+          throw new Error("Your phone could not provide GPS coordinates. Switch on device Location, try outdoors or enter the address manually.");
+        }
+      }
+      if (settled) return;
+      const coordinates = position?.coords;
+      if (!Number.isFinite(coordinates?.latitude) || !Number.isFinite(coordinates?.longitude) ||
+          Math.abs(coordinates.latitude) > 90 || Math.abs(coordinates.longitude) > 180)
+        throw new Error("The device returned invalid coordinates. Enter the address manually.");
+      onCoordinates({ latitude: coordinates.latitude, longitude: coordinates.longitude });
+      onPhase("lookup");
+      const query = new URLSearchParams({
+        latitude: String(coordinates.latitude),
+        longitude: String(coordinates.longitude),
+        localityLanguage: "en",
+      });
+      let data;
+      try {
+        // Free client-originated reverse lookup avoids Render Free cold starts.
+        data = await fetchWithTimeout(
+          "https://api.bigdatacloud.net/data/reverse-geocode-client?" + query,
+          { credentials: "omit", headers: { Accept: "application/json" } },
+          8000,
+        );
+      } catch {
+        if (settled || signal?.aborted) return;
+        try {
+          // Server-side fallback can use a separately configured Google
+          // Geocoding key, but is NOT required for free address entry.
+          data = await fetchWithTimeout(
+            "/api/location/reverse?" + new URLSearchParams({
+              latitude: String(coordinates.latitude),
+              longitude: String(coordinates.longitude),
+            }),
+            { credentials: "same-origin", headers: { Accept: "application/json" } },
+            9000,
+          );
+        } catch {
+          throw new Error("GPS pin detected, but neither address lookup provider responded. Open the Google Maps link to review your pin, then fill area, city and PIN manually.");
+        }
+      }
+      if (!settled) finish(null, parseLocationSuggestion(data, coordinates));
+    })().catch(error => finish(error));
   });
 }
