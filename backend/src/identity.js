@@ -70,7 +70,7 @@ async function sendMsg91Otp(phone,code) {
  const response=await fetch('https://control.msg91.com/api/v5/flow',{
   method:'POST',headers:{authkey:process.env.MSG91_AUTH_KEY,'Content-Type':'application/json',accept:'application/json'},
   body:JSON.stringify({template_id:process.env.MSG91_TEMPLATE_ID,
-   recipients:[{mobiles:phone.replace(/^\\+/,''),OTP:code}]}),
+   recipients:[{mobiles:phone.replace(/^\+/,''),OTP:code}]}),
   signal:AbortSignal.timeout(12000)
  });
  if(!response.ok)throw new Error('SMS request rejected');

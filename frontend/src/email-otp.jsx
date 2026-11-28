@@ -33,7 +33,7 @@ export function EmailOtpLogin({ onSuccess }) {
    <p role="status">{message} Code expires in five minutes.</p>
    <Field label="Six-digit OTP"><input inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}"
     minLength={6} maxLength={6} required value={code}
-    onChange={e=>setCode(e.target.value.replace(/\\D/g,"").slice(0,6))}/></Field>
+    onChange={e=>setCode(e.target.value.replace(/\D/g,"").slice(0,6))}/></Field>
    <SubmitButton busy={busy}>Verify and sign in</SubmitButton>
   </form>}
   <FormError error={error}/>
