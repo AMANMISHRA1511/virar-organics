@@ -5,7 +5,7 @@ import { randomBytes, randomInt, createHmac, timingSafeEqual } from 'node:crypto
 import { z } from 'zod';
 import { config } from './config.js';
 import { rows, transaction } from './db.js';
-import { rateLimit, revokeUser, audit, redis, redisReady } from './infra.js';
+import { rateLimit, revokeUser, redis, redisReady, audit } from './infra.js';
 import { setSession, publicUser } from './auth.js';
 import { parse, wrap, fail, email, password } from './util.js';
 
@@ -77,60 +77,42 @@ export async function sendRecoveryEmail({ to, subject, text: message }) {
     transporter.close();
   }
 }
-// Sign in existing active customer accounts by verified-email delivery.
-// Redis provides bounded TTL, replay prevention and cross-instance persistence.
-const otpKey = address => config.redisPrefix + ':email-otp:' + digest(address);
-const publicOtpMessage = 'If an active customer account exists, a sign-in code will be emailed.';
-passwordRecoveryRouter.post('/auth/email-otp/request',
-  rateLimit('email-otp-request', 8, 3600), wrap(async (req,res) => {
-    const { email: address } = parse(z.object({ email }),req.body);
-    if (!passwordRecoveryReady()) throw fail('Email delivery is not configured.',503,'EMAIL_OTP_UNAVAILABLE');
-    if (!redisReady()) throw fail('Email verification is temporarily unavailable.',503,'EMAIL_OTP_UNAVAILABLE');
-    const [user] = await rows("SELECT id,email,role,active FROM users WHERE email=?", [address]);
-    if (!user || !user.active || user.role !== 'customer') return res.json({message:publicOtpMessage});
-    const key=otpKey(address);
-    if (await redis.set(key+':cooldown','1','EX',60,'NX')!=='OK') return res.json({message:publicOtpMessage});
-    const code=String(randomInt(100000,1000000)), nonce=randomBytes(16).toString('hex');
-    await redis.set(key,JSON.stringify({userId:user.id,nonce,hash:digest(nonce+':'+code)}),'EX',300);
-    await redis.del(key+':attempts');
-    try {
-      await sendRecoveryEmail({
-        to:user.email, subject:'Virar Organics - email sign-in code',
-        text:'Your Virar Organics sign-in code is '+code+
-          '. It expires in 5 minutes. Do not share it. Ignore this email if you did not request it.'
-      });
-    } catch {
-      await redis.del(key);
-      // Hide account-existence and delivery details from the public response.
-    }
-    res.json({message:publicOtpMessage,expiresIn:300,retryAfter:60});
-  }));
-passwordRecoveryRouter.post('/auth/email-otp/verify',
-  rateLimit('email-otp-verify', 24, 3600), wrap(async(req,res) => {
-    const {email:address,code}=parse(z.object({
-      email,code:z.string().regex(/^[0-9]{6}$/)
-    }),req.body);
-    if (!redisReady()) throw fail('Email verification is temporarily unavailable.',503,'EMAIL_OTP_UNAVAILABLE');
-    const key=otpKey(address);
-    const [raw,attempts]=await Promise.all([redis.get(key),redis.incr(key+':attempts')]);
-    if(attempts===1) await redis.expire(key+':attempts',300);
-    if(attempts>5){await redis.del(key);throw fail('Too many attempts. Request another code.',429,'EMAIL_OTP_ATTEMPTS');}
-    if(!raw)throw fail('Invalid or expired code. Request another.',400,'EMAIL_OTP_INVALID');
-    let record;try{record=JSON.parse(raw);}catch{throw fail('Invalid or expired code.',400,'EMAIL_OTP_INVALID');}
-    const computed=digest(record.nonce+':'+code);
-    if(typeof record.hash!=='string'||computed.length!==record.hash.length||
-       !timingSafeEqual(Buffer.from(computed),Buffer.from(record.hash)))
-      throw fail('Invalid or expired code. Request another.',400,'EMAIL_OTP_INVALID');
-    const claimed=await redis.eval(
-      "if redis.call('GET',KEYS[1])==ARGV[1] then redis.call('DEL',KEYS[1]); return 1 else return 0 end",
-      1,key,raw);
-    if(claimed!==1)throw fail('Code was already used.',409,'EMAIL_OTP_USED');
-    const [user]=await rows("SELECT * FROM users WHERE id=? AND email=? AND role='customer' AND active=1",[record.userId,address]);
-    if(!user)throw fail('Account unavailable.',401,'EMAIL_OTP_INVALID');
-    await audit(user.id,'auth.email_otp_login','user',user.id);
-    setSession(res,user);
-    res.json(publicUser(user));
-  }));
+// Email codes authenticate active customer accounts only, never a mobile number.
+const codeKey = address => config.redisPrefix + ':email-code:' + digest(address);
+const genericResponse='If an active customer account exists, a sign-in code will be sent.';
+passwordRecoveryRouter.post('/auth/email-code/request',rateLimit('email-code-req',8,3600),wrap(async(req,res)=>{
+ const {email:address}=parse(z.object({email}),req.body);
+ if(!passwordRecoveryReady())throw fail('Email sending is not configured.',503,'EMAIL_UNAVAILABLE');
+ if(!redisReady())throw fail('Email verification temporarily unavailable.',503,'EMAIL_UNAVAILABLE');
+ const [u]=await rows("SELECT id,email,active,role FROM users WHERE email=?",[address]);
+ if(!u||!u.active||u.role!=='customer')return res.json({message:genericResponse});
+ const key=codeKey(address);
+ if(await redis.set(key+':cool','1','EX',60,'NX')!=='OK')return res.json({message:genericResponse});
+ const code=String(randomInt(100000,1000000)),nonce=randomBytes(16).toString('hex');
+ await redis.set(key,JSON.stringify({id:u.id,nonce,hash:digest(nonce+':'+code)}),'EX',300);
+ await redis.del(key+':tries');
+ try{await sendRecoveryEmail({to:u.email,subject:'Virar Organics - sign-in code',
+  text:'Your Virar Organics code is '+code+'. Valid for 5 minutes. Do not share it.'});}
+ catch{await redis.del(key);}
+ res.json({message:genericResponse,expiresIn:300});
+}));
+passwordRecoveryRouter.post('/auth/email-code/verify',rateLimit('email-code-verify',25,3600),wrap(async(req,res)=>{
+ const {email:address,code}=parse(z.object({email,code:z.string().regex(/^[0-9]{6}$/)}),req.body);
+ if(!redisReady())throw fail('Email verification temporarily unavailable.',503,'EMAIL_UNAVAILABLE');
+ const key=codeKey(address),[raw,tries]=await Promise.all([redis.get(key),redis.incr(key+':tries')]);
+ if(tries===1)await redis.expire(key+':tries',300);
+ if(tries>5){await redis.del(key);throw fail('Too many attempts. Request a new code.',429,'EMAIL_OTP_LIMIT');}
+ if(!raw)throw fail('Invalid or expired code.',400,'EMAIL_OTP_INVALID');
+ let r;try{r=JSON.parse(raw)}catch{throw fail('Invalid or expired code.',400,'EMAIL_OTP_INVALID')}
+ const expected=digest(r.nonce+':'+code);
+ if(typeof r.hash!=='string'||r.hash.length!==expected.length||!timingSafeEqual(Buffer.from(r.hash),Buffer.from(expected)))
+  throw fail('Invalid or expired code.',400,'EMAIL_OTP_INVALID');
+ const used=await redis.eval("if redis.call('GET',KEYS[1])==ARGV[1] then return redis.call('DEL',KEYS[1]) else return 0 end",1,key,raw);
+ if(used!==1)throw fail('Code already used.',409,'EMAIL_OTP_USED');
+ const [user]=await rows("SELECT * FROM users WHERE id=? AND email=? AND role='customer' AND active=1",[r.id,address]);
+ if(!user)throw fail('Account unavailable.',401,'EMAIL_OTP_INVALID');
+ await audit(user.id,'auth.email_code_login','user',user.id);setSession(res,user);res.json(publicUser(user));
+}));
 passwordRecoveryRouter.post('/auth/password/forgot',
   rateLimit('password-forgot', 5, 3600, true), wrap(async (req, res) => {
     const { email: address } = parse(z.object({ email }), req.body);

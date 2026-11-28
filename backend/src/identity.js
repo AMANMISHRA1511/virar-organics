@@ -65,18 +65,15 @@ identityRouter.post('/auth/google',rateLimit('google-login',15,900),wrap(async(r
 
 export function normalizePhone(value){const compact=String(value).trim().replace(/[ ()-]/g,'');const normalized=/^[6-9]\d{9}$/.test(compact)?'+91'+compact:compact;if(!/^\+[1-9]\d{7,14}$/.test(normalized))throw fail('Use a valid mobile number with country code, or a 10-digit Indian mobile number.',422,'PHONE_FORMAT');return normalized;}
 async function sendOtp(phone,code){const sid=process.env.TWILIO_ACCOUNT_SID,token=process.env.TWILIO_AUTH_TOKEN,from=process.env.TWILIO_FROM;const response=await fetch(`https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(sid)}/Messages.json`,{method:'POST',headers:{Authorization:'Basic '+Buffer.from(sid+':'+token).toString('base64'),'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({To:phone,From:from,Body:`Your ${BRAND_NAME} verification code is ${code}. It expires in 5 minutes. Do not share this code.`}),signal:AbortSignal.timeout(12000)});if(!response.ok)throw new Error('OTP provider request failed');}
-// MSG91 Flow sender/template must be pre-approved. Template must use OTP variable.
+// Requires an approved MSG91 Flow template with the variable named OTP.
 async function sendMsg91Otp(phone,code) {
- const response=await fetch('https://control.msg91.com/api/v5/flow',{
-  method:'POST',headers:{authkey:process.env.MSG91_AUTH_KEY,'Content-Type':'application/json',accept:'application/json'},
-  body:JSON.stringify({template_id:process.env.MSG91_TEMPLATE_ID,
-   recipients:[{mobiles:phone.replace(/^\+/,''),OTP:code}]}),
-  signal:AbortSignal.timeout(12000)
- });
- if(!response.ok)throw new Error('SMS request rejected');
- const payload=await response.json();
- if(payload.type==='error'||payload.status==='error'||payload.hasError===true)
-  throw new Error('SMS gateway rejected the request');
+ const resp=await fetch('https://control.msg91.com/api/v5/flow',{
+  method:'POST',headers:{authkey:process.env.MSG91_AUTH_KEY,'Content-Type':'application/json'},
+  body:JSON.stringify({template_id:process.env.MSG91_TEMPLATE_ID,recipients:[{mobiles:phone.replace(/^\\+/,''),OTP:code}]}),
+  signal:AbortSignal.timeout(12000)});
+ if(!resp.ok)throw new Error('MSG91 request failed');
+ const result=await resp.json();
+ if(result.type==='error'||result.status==='error'||result.hasError===true)throw new Error('MSG91 gateway rejected OTP');
 }
 identityRouter.post('/account/phone/request',auth('customer'),rateLimit('phone-request-user',5,3600,true),rateLimit('phone-request-ip',20,3600),wrap(async(req,res)=>{
  if(config.phoneOtpMode==='disabled')throw fail('Phone verification is currently disabled.',503,'PHONE_UNAVAILABLE');if(config.production&&config.phoneOtpMode==='simulated')throw fail('Phone simulation is disabled.',503);
@@ -98,6 +95,6 @@ identityRouter.post('/account/phone/verify',auth('customer'),rateLimit('phone-ve
   if(!['simulated','sent'].includes(challenge.delivery_status))return {error:'The verification message is not ready. Request a new code.',status:409,code:'OTP_NOT_READY'};
   await rows('UPDATE phone_verifications SET attempts=attempts+1 WHERE id=?',[challengeId],c);
   if(!constantEqual(challenge.code_hash,hmac(challengeId+':'+code)))return {error:challenge.attempts+1>=5?'Too many incorrect codes. Request a new code.':'The code is incorrect.',status:challenge.attempts+1>=5?429:400,code:'OTP_INCORRECT'};
-  const actualSms=['twilio','msg91'].includes(challenge.mode);await rows('UPDATE phone_verifications SET consumed_at=UTC_TIMESTAMP() WHERE id=?',[challengeId],c);await rows('UPDATE users SET phone=?,phone_verified=?,phone_verification_method=?,phone_verified_at=? WHERE id=?',[challenge.phone,actualSms,actualSms?'sms':'simulated',actualSms?new Date():null,req.user.id],c);await audit(req.user.id,actualSms?'phone.verified':'phone.simulated','user',req.user.id,{method:actualSms?'sms':'simulated'},c);await customerChanged(c,req.user.id);return {user:publicUser((await rows('SELECT * FROM users WHERE id=?',[req.user.id],c))[0]),message:actualSms?'Phone verified by SMS.':'Practice verification completed. This phone number is not verified; no SMS was sent.'};
+  const actualSms=challenge.mode==='twilio'||challenge.mode==='msg91';await rows('UPDATE phone_verifications SET consumed_at=UTC_TIMESTAMP() WHERE id=?',[challengeId],c);await rows('UPDATE users SET phone=?,phone_verified=?,phone_verification_method=?,phone_verified_at=? WHERE id=?',[challenge.phone,actualSms,actualSms?'sms':'simulated',actualSms?new Date():null,req.user.id],c);await audit(req.user.id,actualSms?'phone.verified':'phone.simulated','user',req.user.id,{method:actualSms?'sms':'simulated'},c);await customerChanged(c,req.user.id);return {user:publicUser((await rows('SELECT * FROM users WHERE id=?',[req.user.id],c))[0]),message:actualSms?'Phone verified by SMS.':'Practice verification completed. This phone number is not verified; no SMS was sent.'};
  });if(result.error)throw fail(result.error,result.status,result.code);await flushRealtime();res.json({...result.user,message:result.message});
 }));

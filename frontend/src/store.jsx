@@ -40,6 +40,7 @@ import {
 } from "./api";
 import { useStore } from "./context";
 import { GoogleIdentity, PhoneVerification } from "./auth-options";
+import { EmailCodeLogin } from "./email-code";
 import { EmailOtpLogin } from "./email-otp";
 import { AddressFields } from "./addresses";
 import { addressPayload, emptyAddress } from "./location";
@@ -1086,6 +1087,7 @@ export function AuthPage({ register = false, staff = false }) {
           </SubmitButton>
         </form>
         {!register && <p className="auth-switch"><Link to="/forgot-password">Forgot password?</Link></p>}
+        {!register && !staff && <EmailCodeLogin onSuccess={() => navigate(returnTo.startsWith("/admin") ? "/account" : returnTo, { replace:true })} />}
         {!register && !staff && <EmailOtpLogin onSuccess={() => navigate(returnTo.startsWith("/admin") ? "/account" : returnTo, { replace: true })} />}
         {!staff && (
           <>
