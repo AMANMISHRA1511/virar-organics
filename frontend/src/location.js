@@ -155,19 +155,19 @@ export function requestCurrentLocation({
     // browser ignores its geolocation timeout or a provider hangs.
     watchdog = setTimeout(() =>
       finish(new Error("Location request took too long. Please enter the address manually or retry with device Location enabled.")),
-    20000);
+    35000);
     onPhase("permission");
 
     function positionAttempt(highAccuracy) {
       return new Promise((success, failure) => {
-        const timer = setTimeout(() => failure({ code: 3 }), highAccuracy ? 7000 : 5000);
+        const timer = setTimeout(() => failure({ code: 3 }), highAccuracy ? 12000 : 6000);
         geolocation.getCurrentPosition(
           position => { clearTimeout(timer); success(position); },
           error => { clearTimeout(timer); failure(error); },
           {
             enableHighAccuracy: highAccuracy,
-            maximumAge: highAccuracy ? 30000 : 300000,
-            timeout: highAccuracy ? 6500 : 4500,
+            maximumAge: 0,
+            timeout: highAccuracy ? 11000 : 5000,
           },
         );
       });
@@ -194,7 +194,7 @@ export function requestCurrentLocation({
       try {
         // Fast coarse location first: Android network positioning often succeeds
         // when waiting for a high-accuracy satellite fix times out indoors.
-        position = await positionAttempt(false);
+        position = await positionAttempt(true);
       } catch (error) {
         if (error?.code === 1) {
           throw new Error("Location permission is denied. Allow Location for Chrome and this website, or enter the address manually.");
@@ -202,7 +202,7 @@ export function requestCurrentLocation({
         if (settled || signal?.aborted) return;
         onPhase("retry");
         try {
-          position = await positionAttempt(true);
+          position = await positionAttempt(false);
         } catch (last) {
           if (last?.code === 1)
             throw new Error("Location permission is denied. Enable Location permission or enter the address manually.");
@@ -227,7 +227,7 @@ export function requestCurrentLocation({
         data = await fetchWithTimeout(
           "https://api.bigdatacloud.net/data/reverse-geocode-client?" + query,
           { credentials: "omit", headers: { Accept: "application/json" }, referrerPolicy: "no-referrer" },
-          4000,
+          7000,
         );
       } catch {
         if (settled || signal?.aborted) return;
@@ -240,7 +240,7 @@ export function requestCurrentLocation({
               longitude: String(coordinates.longitude),
             }),
             { credentials: "same-origin", headers: { Accept: "application/json" } },
-            4000,
+            15000,
           );
         } catch {
           throw new Error("GPS pin detected, but neither address lookup provider responded. Open the Google Maps link to review your pin, then fill area, city and PIN manually.");
