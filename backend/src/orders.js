@@ -6,7 +6,7 @@ import { db, rows, json, transaction } from './db.js';
 import { admin, auth } from './auth.js';
 import { id, parse, wrap, fail, text, phone, latitude, longitude, paged, cents, csv } from './util.js';
 import { getSettings } from './catalogue.js';
-import { audit, catalogueChanged, flushRealtime, rateLimit } from './infra.js';
+import { audit, catalogueChanged, flushRealtime, rateLimit, queueEvent, customerChanged } from './infra.js';
 import { orderOutbox, pumpOutbox } from './notifications.js';
 import { checkoutAddressSchema } from './address-schema.js';
 import { stockNotice } from './in-app.js';
@@ -74,6 +74,19 @@ export async function changeOrder(orderId,input,actor,{customer=false}={}){
   if(status==='Cancelled'&&!o.stock_restored){const lines=await rows('SELECT product_id,quantity FROM order_items WHERE order_id=? ORDER BY product_id',[o.id],c);for(const line of lines)await rows('UPDATE products SET stock=stock+? WHERE id=?',[line.quantity,line.product_id],c);o.stock_restored=1;await catalogueChanged(c,lines.map(x=>x.product_id),'stock_released');}
   const paymentStatus=status==='Cancelled'&&o.payment_status==='paid'?'refund_required':o.payment_status;
   await rows('UPDATE orders SET status=?,tracking=?,delivery_notes=?,latitude=?,longitude=?,stock_restored=?,payment_status=? WHERE id=?',[values.status,values.tracking,values.delivery_notes,values.latitude,values.longitude,o.stock_restored,paymentStatus,o.id],c);
+  // Create one post-delivery CRM lead in the same locked order transaction.
+  if(status==='Delivered'&&o.status!=='Delivered'){
+    const [buyer]=await rows('SELECT name,email,phone FROM users WHERE id=?',[o.user_id],c);
+    const lines=await rows('SELECT name,quantity FROM order_items WHERE order_id=? ORDER BY id',[o.id],c);
+    const address=json(o.address,{});
+    const product=lines.map(x=>x.name).join(', ').slice(0,150)||'Completed order';
+    const quantity=lines.reduce((sum,x)=>sum+Number(x.quantity),0)||1;
+    const message=('Automatic follow-up for delivered order #'+o.id+'. Items: '+lines.map(x=>x.quantity+' x '+x.name).join(', ')).slice(0,5000);
+    const lead=await rows('INSERT INTO leads(name,email,phone,product,quantity,message,status,followup,user_id) VALUES(?,?,?,?,?,?,?,?,?)',[(buyer.name||address.name||'Customer').slice(0,100),buyer.email,address.phone||buyer.phone||'',product,quantity,message,'New',null,o.user_id],c);
+    await audit(actor.id,'lead.created','lead',lead.insertId,{source:'delivered_order',orderId:o.id},c);
+    await queueEvent(c,'lead:updated',{id:lead.insertId},['role:admin','role:sales']);
+    await customerChanged(c,o.user_id);
+  }
   const next={...o,...values,payment_status:paymentStatus};const message=status!==o.status?`Order ${status.toLowerCase()}${paymentStatus==='refund_required'?' · payment refund needs manual handling':''}`:'Shipment or delivery details updated';const activityId=await activity(c,next,actor.id,message);await orderOutbox(c,next,`order-${o.id}-activity-${activityId}`,`order #${o.id}: ${message.toLowerCase()}.`);await audit(actor.id,'order.updated','order',o.id,{status,tracking:values.tracking,locationChanged:input.latitude!==undefined},c);changed=true;
  });const order=await getOrder(orderId,actor);if(changed){await flushRealtime();void pumpOutbox();}return order;
 }
