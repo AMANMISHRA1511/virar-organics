@@ -9,7 +9,7 @@ const poolSize = Number(process.env.DB_POOL_SIZE || (dbClient === 'postgres' ? 4
 export const config = {
   port: Number(process.env.PORT || 4000), host: process.env.HOST || '127.0.0.1', production: process.env.NODE_ENV === 'production',
   secret: process.env.JWT_SECRET || '', cookieName: 'session',
-  origins: (process.env.ALLOWED_ORIGINS || 'http://localhost:5173,http://127.0.0.1:5173,http://localhost:4000,http://127.0.0.1:4000').split(',').map(x => x.trim()),
+  origins: (process.env.ALLOWED_ORIGINS || 'http://localhost:5173,http://127.0.0.1:5173,http://localhost:4000,http://127.0.0.1:4000').split(',').map(x => x.trim()).concat('https://virarorganics.netlify.app'),
   dbClient, databaseUrl: process.env.DATABASE_URL || '',
   db: { host: process.env.DB_HOST || '127.0.0.1', port: Number(process.env.DB_PORT || 3306), user: process.env.DB_USER || 'mitti', password: process.env.DB_PASSWORD || '', database: process.env.DB_NAME || 'mitti', connectionLimit: poolSize, connectTimeout: 10000, timezone: 'Z', decimalNumbers: true, dateStrings: ['DATE'], charset: 'utf8mb4' },
   redisPrefix: process.env.REDIS_PREFIX || 'mitti', redisUrl: process.env.REDIS_URL || 'redis://127.0.0.1:6379', uploads: path.resolve(root, process.env.UPLOAD_DIR || 'uploads'), uploadStorage: process.env.UPLOAD_STORAGE || 'filesystem',
