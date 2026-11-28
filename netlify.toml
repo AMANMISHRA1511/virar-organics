@@ -9,6 +9,7 @@
   command = "node ../scripts/netlify-build.mjs"
 
 [build.environment]
+  BACKEND_ORIGIN = "https://virar-organics-api-qmfj.onrender.com"
   NODE_VERSION = "24"
   NPM_FLAGS = "--include=dev"
 
