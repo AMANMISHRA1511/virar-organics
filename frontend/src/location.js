@@ -155,18 +155,19 @@ export function requestCurrentLocation({
     // browser ignores its geolocation timeout or a provider hangs.
     watchdog = setTimeout(() =>
       finish(new Error("Location request took too long. Please enter the address manually or retry with device Location enabled.")),
-    40000);
+    20000);
     onPhase("permission");
 
     function positionAttempt(highAccuracy) {
       return new Promise((success, failure) => {
+        const timer = setTimeout(() => failure({ code: 3 }), highAccuracy ? 7000 : 5000);
         geolocation.getCurrentPosition(
-          position => success(position),
-          error => failure(error),
+          position => { clearTimeout(timer); success(position); },
+          error => { clearTimeout(timer); failure(error); },
           {
             enableHighAccuracy: highAccuracy,
             maximumAge: highAccuracy ? 30000 : 300000,
-            timeout: highAccuracy ? 10000 : 9000,
+            timeout: highAccuracy ? 6500 : 4500,
           },
         );
       });
@@ -198,6 +199,7 @@ export function requestCurrentLocation({
         if (error?.code === 1) {
           throw new Error("Location permission is denied. Allow Location for Chrome and this website, or enter the address manually.");
         }
+        if (settled || signal?.aborted) return;
         onPhase("retry");
         try {
           position = await positionAttempt(true);
@@ -224,8 +226,8 @@ export function requestCurrentLocation({
         // Free client-originated reverse lookup avoids Render Free cold starts.
         data = await fetchWithTimeout(
           "https://api.bigdatacloud.net/data/reverse-geocode-client?" + query,
-          { credentials: "omit", headers: { Accept: "application/json" } },
-          8000,
+          { credentials: "omit", headers: { Accept: "application/json" }, referrerPolicy: "no-referrer" },
+          4000,
         );
       } catch {
         if (settled || signal?.aborted) return;
@@ -238,7 +240,7 @@ export function requestCurrentLocation({
               longitude: String(coordinates.longitude),
             }),
             { credentials: "same-origin", headers: { Accept: "application/json" } },
-            9000,
+            4000,
           );
         } catch {
           throw new Error("GPS pin detected, but neither address lookup provider responded. Open the Google Maps link to review your pin, then fill area, city and PIN manually.");
