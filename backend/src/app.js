@@ -31,7 +31,8 @@ export async function createApp(){
  // The customer's coordinates are ephemeral and sent only after their
  // explicit location action. Logs record the route path, not the query.
  app.get('/api/location/reverse',rateLimit('location',20,3600),wrap(async(req,res)=>{
-   if(config.locationProvider==='disabled')throw fail('Location lookup is unavailable.',503);
+   if(config.locationProvider==='disabled'&&!config.googleMapsGeocodingKey)throw fail('Location lookup is unavailable.',503);
+   if(typeof req.query.latitude!=='string'||typeof req.query.longitude!=='string'||!req.query.latitude.trim()||!req.query.longitude.trim())throw fail('Missing location coordinates.',422);
    const latitude=Number(req.query.latitude), longitude=Number(req.query.longitude);
    if(!Number.isFinite(latitude)||!Number.isFinite(longitude)||Math.abs(latitude)>90||Math.abs(longitude)>180)
      throw fail('Invalid location coordinates.',422);
@@ -72,7 +73,7 @@ export async function createApp(){
    catch {throw fail('Area lookup is temporarily unavailable. Enter the address manually.',503);}
    if(!response.ok)throw fail('Area lookup is temporarily unavailable. Enter the address manually.',503);
    const result=await response.json();
-   if(!result||typeof result!=='object'||result.error||result.errorCode)
+   if(!result||typeof result!=='object'||result.error||result.errorCode||!result.countryCode)
      throw fail('Could not identify this location. Enter the address manually.',503);
    res.json({countryCode:result.countryCode||'',countryName:result.countryName||'',postcode:result.postcode||'',city:result.city||'',locality:result.locality||'',principalSubdivision:result.principalSubdivision||''});
  }));
