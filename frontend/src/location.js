@@ -155,7 +155,7 @@ export function requestCurrentLocation({
     // browser ignores its geolocation timeout or a provider hangs.
     watchdog = setTimeout(() =>
       finish(new Error("Location request took too long. Please enter the address manually or retry with device Location enabled.")),
-    50000);
+    65000);
     onPhase("permission");
 
     function positionAttempt(highAccuracy) {
@@ -175,11 +175,12 @@ export function requestCurrentLocation({
         const accept = position => {
           const coords = position?.coords;
           if (!Number.isFinite(coords?.latitude) || !Number.isFinite(coords?.longitude)) return;
+          if (done || !Number.isFinite(coords.accuracy) || coords.accuracy < 0 || Math.abs(coords.latitude)>90 || Math.abs(coords.longitude)>180) return;
           if (!best || coords.accuracy < best.coords.accuracy) best = position;
-          if (!highAccuracy || coords.accuracy <= 50) complete(null, position);
+          if (coords.accuracy <= 50) complete(null, position);
         };
         const error = e => { if (e?.code === 1) complete(e); };
-        const duration = highAccuracy ? 16000 : 7000;
+        const duration = highAccuracy ? 20000 : 10000;
         timer = setTimeout(() => best ? complete(null, best) : complete({code: 3}), duration);
         signal?.addEventListener("abort", cancel, {once:true});
         const options = {enableHighAccuracy: highAccuracy, maximumAge: 0, timeout: duration};
@@ -187,6 +188,7 @@ export function requestCurrentLocation({
           if (typeof geolocation.watchPosition === "function") {
             watchId = geolocation.watchPosition(accept, error, options);
             if (done) geolocation.clearWatch?.(watchId);
+            else geolocation.getCurrentPosition(accept, error, options);
           } else {
             geolocation.getCurrentPosition(p => complete(null,p), e => complete(e), options);
           }
@@ -234,6 +236,7 @@ export function requestCurrentLocation({
       if (!Number.isFinite(coordinates?.latitude) || !Number.isFinite(coordinates?.longitude) ||
           Math.abs(coordinates.latitude) > 90 || Math.abs(coordinates.longitude) > 180)
         throw new Error("The device returned invalid coordinates. Enter the address manually.");
+      if (!Number.isFinite(coordinates.accuracy) || coordinates.accuracy > 100) throw new Error("Location is too approximate for delivery. Enable precise location in Chrome and retry.");
       onCoordinates({ latitude: coordinates.latitude, longitude: coordinates.longitude });
       onPhase("lookup");
       const query = new URLSearchParams({
