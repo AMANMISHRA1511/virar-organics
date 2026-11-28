@@ -69,7 +69,7 @@ async function sendOtp(phone,code){const sid=process.env.TWILIO_ACCOUNT_SID,toke
 async function sendMsg91Otp(phone,code) {
  const resp=await fetch('https://control.msg91.com/api/v5/flow',{
   method:'POST',headers:{authkey:process.env.MSG91_AUTH_KEY,'Content-Type':'application/json'},
-  body:JSON.stringify({template_id:process.env.MSG91_TEMPLATE_ID,recipients:[{mobiles:phone.replace(/^\\+/,''),OTP:code}]}),
+  body:JSON.stringify({template_id:process.env.MSG91_TEMPLATE_ID,recipients:[{mobiles:phone.replace(/^\+/,''),OTP:code}]}),
   signal:AbortSignal.timeout(12000)});
  if(!resp.ok)throw new Error('MSG91 request failed');
  const result=await resp.json();

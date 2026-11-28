@@ -31,7 +31,7 @@ export function EmailCodeLogin({onSuccess}){
   </form>
   {requested&&<form className="form-stack" onSubmit={verify}>
    <p role="status">{message} Code expires after 5 minutes.</p>
-   <Field label="Six-digit code"><input value={code} onChange={e=>setCode(e.target.value.replace(/\\D/g,"").slice(0,6))}
+   <Field label="Six-digit code"><input value={code} onChange={e=>setCode(e.target.value.replace(/\D/g,"").slice(0,6))}
     inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} required/></Field>
    <SubmitButton busy={busy}>Verify code and sign in</SubmitButton>
   </form>}
