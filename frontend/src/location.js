@@ -155,21 +155,42 @@ export function requestCurrentLocation({
     // browser ignores its geolocation timeout or a provider hangs.
     watchdog = setTimeout(() =>
       finish(new Error("Location request took too long. Please enter the address manually or retry with device Location enabled.")),
-    35000);
+    50000);
     onPhase("permission");
 
     function positionAttempt(highAccuracy) {
       return new Promise((success, failure) => {
-        const timer = setTimeout(() => failure({ code: 3 }), highAccuracy ? 12000 : 6000);
-        geolocation.getCurrentPosition(
-          position => { clearTimeout(timer); success(position); },
-          error => { clearTimeout(timer); failure(error); },
-          {
-            enableHighAccuracy: highAccuracy,
-            maximumAge: 0,
-            timeout: highAccuracy ? 11000 : 5000,
-          },
-        );
+        let done = false, watchId, best, timer;
+        const cleanup = () => {
+          clearTimeout(timer);
+          if (watchId != null) geolocation.clearWatch?.(watchId);
+          signal?.removeEventListener("abort", cancel);
+        };
+        const complete = (error, position) => {
+          if (done) return;
+          done = true; cleanup();
+          if (error) failure(error); else success(position);
+        };
+        const cancel = () => complete({code: 1});
+        const accept = position => {
+          const coords = position?.coords;
+          if (!Number.isFinite(coords?.latitude) || !Number.isFinite(coords?.longitude)) return;
+          if (!best || coords.accuracy < best.coords.accuracy) best = position;
+          if (!highAccuracy || coords.accuracy <= 50) complete(null, position);
+        };
+        const error = e => { if (e?.code === 1) complete(e); };
+        const duration = highAccuracy ? 16000 : 7000;
+        timer = setTimeout(() => best ? complete(null, best) : complete({code: 3}), duration);
+        signal?.addEventListener("abort", cancel, {once:true});
+        const options = {enableHighAccuracy: highAccuracy, maximumAge: 0, timeout: duration};
+        try {
+          if (typeof geolocation.watchPosition === "function") {
+            watchId = geolocation.watchPosition(accept, error, options);
+            if (done) geolocation.clearWatch?.(watchId);
+          } else {
+            geolocation.getCurrentPosition(p => complete(null,p), e => complete(e), options);
+          }
+        } catch (e) { complete(e); }
       });
     }
     async function fetchWithTimeout(url, settings, timeoutMs) {
@@ -192,8 +213,7 @@ export function requestCurrentLocation({
     (async () => {
       let position;
       try {
-        // Fast coarse location first: Android network positioning often succeeds
-        // when waiting for a high-accuracy satellite fix times out indoors.
+        // Prefer a fresh precise fix, then retry network positioning.
         position = await positionAttempt(true);
       } catch (error) {
         if (error?.code === 1) {
