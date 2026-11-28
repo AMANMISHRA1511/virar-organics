@@ -266,3 +266,15 @@ Google OAuth requires a Web OAuth client ID set as `GOOGLE_CLIENT_ID` in the Ren
 - Real phone OTP verification requires an SMS service and sender credentials. Production does not accept simulated codes as proof of phone ownership, and actual SMS is not necessarily free.
 - Forgot Password uses single-use, expiring links. SMTP credentials, sender address and the trusted `PASSWORD_RESET_PUBLIC_ORIGIN` must be configured on Render; email sending cannot work without a delivery provider.
 - Razorpay TEST Checkout controls whether the account offers UPI Intent/QR. UPI is not a separate fake payment method. Check Razorpay's enabled methods; real payments require live onboarding and may incur processing fees.
+
+
+## Free Render email recovery (HTTPS)
+
+On **Render Free**, SMTP ports 25, 465 and 587 are blocked, so ordinary SMTP reset emails cannot be delivered from the hosted service. This project also supports **Brevo Transactional Email HTTPS API** (port 443) without requiring a paid Render instance. A limited Brevo Free quota may be available; actual sender verification and deliverability remain the responsibility of the account.
+
+1. Create a Brevo account, complete sender verification and activate transactional email if required by the provider.
+2. In **Render > virar-organics-api > Environment**, set `BREVO_API_KEY` to the secret Brevo API v3 key and `BREVO_SENDER_EMAIL` to the exact verified sender email. Also set `PASSWORD_RESET_PUBLIC_ORIGIN=https://virar-organics.netlify.app`.
+3. Save and let Render redeploy. In `/forgot-password`, request a reset link for a real account and verify arrival, 15-minute expiry, single-use consumption and logout of previous sessions. Tokens are hashed in PostgreSQL and not written to logs.
+4. **Never** commit these credentials or share them in chat. Without a Brevo API key, SMTP remains available only on hosts that allow outbound email, and the UI indicates if the backend is unconfigured.
+
+For actual **phone-number** ownership verification, configure an approved SMS sender and `PHONE_OTP_MODE=twilio` with Twilio's API credentials; real SMS delivery can cost money. Do **not** turn on production `simulated` OTP or treat an email OTP as phone verification.

@@ -9,9 +9,17 @@ import { rateLimit, revokeUser } from './infra.js';
 import { parse, wrap, fail, email, password } from './util.js';
 
 export const passwordRecoveryRouter = Router();
-export const passwordRecoveryReady = () => Boolean(
+const brevoReady = () => Boolean(
+  process.env.BREVO_API_KEY &&
+  process.env.BREVO_SENDER_EMAIL &&
+  /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(process.env.BREVO_SENDER_EMAIL)
+);
+const smtpReady = () => Boolean(
   process.env.SMTP_HOST && process.env.SMTP_FROM &&
-  process.env.SMTP_USER && process.env.SMTP_PASSWORD &&
+  process.env.SMTP_USER && process.env.SMTP_PASSWORD
+);
+export const passwordRecoveryReady = () => Boolean(
+  (brevoReady() || smtpReady()) &&
   process.env.PASSWORD_RESET_PUBLIC_ORIGIN &&
   config.origins.includes(process.env.PASSWORD_RESET_PUBLIC_ORIGIN)
 );
@@ -36,6 +44,38 @@ function mailer() {
     connectionTimeout: 10000, greetingTimeout: 10000, socketTimeout: 15000,
   });
 }
+async function sendRecoveryEmail({ to, subject, text: message }) {
+  if (brevoReady()) {
+    // Render Free blocks outgoing SMTP; Brevo HTTPS API works over port 443.
+    // Never include API keys or provider error payloads in logs/responses.
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'api-key': process.env.BREVO_API_KEY,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({
+        sender: { email: process.env.BREVO_SENDER_EMAIL, name: 'Virar Organics' },
+        to: [{ email: to }],
+        subject,
+        textContent: message,
+      }),
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!response.ok) throw new Error('Email provider rejected the message');
+    return;
+  }
+  const transporter = mailer();
+  try {
+    await transporter.sendMail({
+      from: process.env.SMTP_FROM,
+      to, subject, text: message,
+    });
+  } finally {
+    transporter.close();
+  }
+}
 passwordRecoveryRouter.post('/auth/password/forgot',
   rateLimit('password-forgot', 5, 3600, true), wrap(async (req, res) => {
     const { email: address } = parse(z.object({ email }), req.body);
@@ -56,20 +96,19 @@ passwordRecoveryRouter.post('/auth/password/forgot',
       return true;
     });
     if (requested) {
-      const transporter = mailer();
       try {
-        // A URL fragment keeps the bearer token out of ordinary HTTP access logs.
+        // The URL fragment prevents token transmission in ordinary HTTP request logs.
         const url = origin + '/reset-password#' + token;
-        await transporter.sendMail({
-          from: process.env.SMTP_FROM, to: user.email,
+        await sendRecoveryEmail({
+          to: user.email,
           subject: 'Virar Organics - password reset',
           text: 'A password reset was requested for your Virar Organics account.\n\nOpen this link within 15 minutes:\n' +
             url + '\n\nIf you did not request this, ignore the message. Never share this link.',
         });
       } catch {
         await rows('UPDATE password_reset_tokens SET consumed_at=UTC_TIMESTAMP() WHERE token_hash=?', [hash]);
-        // Do not reveal whether the address is registered.
-      } finally { transporter.close(); }
+        // Do not reveal whether the address is registered or the provider failed.
+      }
     }
     return res.json({ message: publicMessage });
   }));
