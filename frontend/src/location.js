@@ -120,6 +120,7 @@ export function requestCurrentLocation({
   fetchImpl = globalThis.fetch,
   signal,
   onPhase = () => {},
+  onCoordinates = () => {},
 }) {
   return new Promise((resolve, reject) => {
     let finished = false;
@@ -177,6 +178,7 @@ export function requestCurrentLocation({
             throw new Error(
               "The browser returned an older location. Request a fresh location or enter your address manually.",
             );
+          onCoordinates({ latitude: coordinates.latitude, longitude: coordinates.longitude });
           onPhase("lookup");
           const url = new URL(
             "https://api.bigdatacloud.net/data/reverse-geocode-client",

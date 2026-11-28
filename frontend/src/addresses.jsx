@@ -90,6 +90,7 @@ export function AddressFields({
     error: "",
   });
   const [suggestion, setSuggestion] = useState(null);
+  const [detectedCoordinates, setDetectedCoordinates] = useState(null);
   useEffect(
     () => () => {
       requestNumber.current += 1;
@@ -144,10 +145,12 @@ export function AddressFields({
     const controller = new AbortController();
     lookupController.current = controller;
     setSuggestion(null);
+    setDetectedCoordinates(null);
     try {
       const found = await requestCurrentLocation({
         geolocation: navigator.geolocation,
         signal: controller.signal,
+        onCoordinates: setDetectedCoordinates,
         onPhase: (phase) =>
           setLocation({
             busy: true,
@@ -234,6 +237,14 @@ export function AddressFields({
           </p>
         )}
         <FormError error={location.error} />
+        {detectedCoordinates && (
+          <p>
+            <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(detectedCoordinates.latitude + "," + detectedCoordinates.longitude)}`}
+              target="_blank" rel="noopener noreferrer">
+              View this location in Google Maps
+            </a>
+          </p>
+        )}
         {suggestion?.warning && (
           <InlineNotice>{suggestion.warning}</InlineNotice>
         )}
