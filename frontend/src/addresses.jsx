@@ -14,7 +14,6 @@ import { useResource } from "./hooks";
 import {
   Badge,
   ConfirmAction,
-  DeliveryMap,
   EmptyState,
   ErrorState,
   Field,
@@ -81,7 +80,6 @@ export function AddressFields({
   const { user, config, settings } = useStore();
   const allowedPincodes = [...new Set((settings.deliveryZones || []).flatMap(zone => zone.pincodes || []))].filter(pin => /^\d{6}$/.test(pin)).sort();
   const pinServiceable = allowedPincodes.includes(String(value.pincode || ""));
-  const mapDetails = useRef(null);
   const dirty = useRef(new Set());
   const requestNumber = useRef(0);
   const lookupController = useRef(null);
@@ -222,8 +220,7 @@ export function AddressFields({
           <LocateFixed size={18} />
           {location.busy ? "Finding your location…" : "Use my current location"}
         </button>
-        {location.busy && <button type="button" className="button secondary" onClick={() => { requestNumber.current += 1; lookupController.current?.abort(); setLocation({ busy: false, message: "Location cancelled. Select a map pin or enter your address.", error: "" }); }}>Cancel location</button>}
-        <button type="button" className="button secondary" disabled={disabled} onClick={() => { if (mapDetails.current) { mapDetails.current.open = true; mapDetails.current.scrollIntoView({ block: "center", behavior: "smooth" }); } }}><MapPin size={18} /> Select location on map</button>
+        {location.busy && <button type="button" className="button secondary" onClick={() => { requestNumber.current += 1; lookupController.current?.abort(); setLocation({ busy: false, message: "Location cancelled. Retry current location or enter your address.", error: "" }); }}>Cancel location</button>}
         <p>
           Location coordinates are used only when you ask to locate your address.
           Confirm the suggested PIN, city and area before saving.
@@ -383,48 +380,6 @@ export function AddressFields({
           <span>Use as my default delivery address</span>
         </label>
       )}
-      <details ref={mapDetails} className="location-details">
-        <summary>
-          <MapPin size={17} />
-          Review or adjust the delivery pin (optional)
-        </summary>
-        <p className="muted">
-          The pin helps find the building. It does not determine a flat or room
-          number.
-        </p>
-        <DeliveryMap
-          order={{ latitude: value.lat, longitude: value.lng }}
-          editable={!disabled}
-          height={230}
-          onPick={({ lat, lng }) =>
-            onChange((previous) => ({ ...previous, lat, lng, accuracy: null }))
-          }
-        />
-        <div className="form-grid">
-          <Field label="Latitude">
-            <input
-              type="number"
-              step="any"
-              min="-90"
-              max="90"
-              value={value.lat ?? ""}
-              onChange={(event) => change("lat", event.target.value)}
-              disabled={disabled}
-            />
-          </Field>
-          <Field label="Longitude">
-            <input
-              type="number"
-              step="any"
-              min="-180"
-              max="180"
-              value={value.lng ?? ""}
-              onChange={(event) => change("lng", event.target.value)}
-              disabled={disabled}
-            />
-          </Field>
-        </div>
-      </details>
     </>
   );
 }
