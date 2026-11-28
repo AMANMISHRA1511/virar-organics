@@ -27,9 +27,10 @@ export function validateConfig() {
   const mapUrl=new URL(config.mapTileUrl);if(!['https:','http:'].includes(mapUrl.protocol)||(config.production&&mapUrl.protocol!=='https:'))throw new Error('MAP_TILE_URL must use HTTPS (HTTP allowed only in local development).');
   if (!['bigdatacloud','disabled'].includes(config.locationProvider)) throw new Error('LOCATION_PROVIDER must be bigdatacloud or disabled.');
   if (!['mock', 'razorpay', 'disabled'].includes(config.paymentMode)) throw new Error('Invalid PAYMENT_MODE');
-  if (!['simulated', 'twilio', 'disabled'].includes(config.phoneOtpMode)) throw new Error('Invalid PHONE_OTP_MODE');
+  if (!['simulated', 'twilio', 'msg91', 'disabled'].includes(config.phoneOtpMode)) throw new Error('Invalid PHONE_OTP_MODE');
   if(config.production && config.phoneOtpMode==='simulated') throw new Error('Simulated phone verification is forbidden in production. Use twilio or disabled.');
   if(config.phoneOtpMode==='twilio' && (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN || !process.env.TWILIO_FROM)) throw new Error('Twilio phone OTP requires account SID, auth token and sender.');
+  if(config.phoneOtpMode==='msg91' && (!process.env.MSG91_AUTH_KEY || !process.env.MSG91_TEMPLATE_ID)) throw new Error('MSG91 OTP needs MSG91_AUTH_KEY and MSG91_TEMPLATE_ID.');
   if(config.googleClientId && !/^[a-zA-Z0-9_-]+\.apps\.googleusercontent\.com$/.test(config.googleClientId)) throw new Error('GOOGLE_CLIENT_ID must be a Google web client ID.');
   if (!['simulated', 'configured', 'disabled'].includes(config.notificationMode)) throw new Error('Invalid NOTIFICATION_MODE');
   if (config.production && /replace|local|demo|test|change/i.test(config.secret)) throw new Error('Replace the example JWT_SECRET before production.');

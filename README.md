@@ -278,3 +278,12 @@ On **Render Free**, SMTP ports 25, 465 and 587 are blocked, so ordinary SMTP res
 4. **Never** commit these credentials or share them in chat. Without a Brevo API key, SMTP remains available only on hosts that allow outbound email, and the UI indicates if the backend is unconfigured.
 
 For actual **phone-number** ownership verification, configure an approved SMS sender and `PHONE_OTP_MODE=twilio` with Twilio's API credentials; real SMS delivery can cost money. Do **not** turn on production `simulated` OTP or treat an email OTP as phone verification.
+
+
+## Customer email OTP and future MSG91 phone OTP
+
+Customer login supports a 6-digit passwordless email OTP for existing active customer accounts only. Each code expires in 5 minutes, is single-use, and allows at most 5 attempts. A healthy Redis instance is required. Email OTP is not proof of mobile number ownership and is unavailable to staff accounts.
+
+Email delivery uses the same configured transporter as password recovery. For Render Free, set `BREVO_API_KEY`, `BREVO_SENDER_EMAIL` (verified sender), and `PASSWORD_RESET_PUBLIC_ORIGIN=https://virar-organics.netlify.app`. The free provider quota is limited. Without this setup, the login UI stays hidden. Keep keys private.
+
+Future MSG91 SMS: set `MSG91_AUTH_KEY` and `MSG91_TEMPLATE_ID` for an approved MSG91 Flow template with parameter `OTP`, then change `PHONE_OTP_MODE=msg91` after compliant DLT sender/template setup, prepaid SMS credit and successful end-to-end delivery test. Mode remains `disabled` until activated explicitly. Never use simulated verification in production.
