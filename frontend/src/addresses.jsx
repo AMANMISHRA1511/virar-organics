@@ -1,6 +1,5 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useState } from "react";
 import {
-  LocateFixed,
   MapPin,
   Pencil,
   Plus,
@@ -18,7 +17,6 @@ import {
   ErrorState,
   Field,
   FormError,
-  InlineNotice,
   Loading,
   Modal,
   PageHeading,
@@ -27,8 +25,6 @@ import {
 import {
   addressPayload,
   emptyAddress,
-  mergeLocationSuggestion,
-  requestCurrentLocation,
 } from "./location";
 
 const INDIAN_STATES = [
@@ -77,111 +73,16 @@ export function AddressFields({
   showDefault = false,
   disabled = false,
 }) {
-  const { user, config, settings } = useStore();
+  const { settings } = useStore();
   const allowedPincodes = [...new Set((settings.deliveryZones || []).flatMap(zone => zone.pincodes || []))].filter(pin => /^\d{6}$/.test(pin)).sort();
   const pinServiceable = allowedPincodes.includes(String(value.pincode || ""));
-  const dirty = useRef(new Set());
-  const requestNumber = useRef(0);
-  const lookupController = useRef(null);
-  const [location, setLocation] = useState({
-    busy: false,
-    message: "",
-    error: "",
-  });
-  const [suggestion, setSuggestion] = useState(null);
-  const [detectedCoordinates, setDetectedCoordinates] = useState(null);
-  useEffect(
-    () => () => {
-      requestNumber.current += 1;
-      lookupController.current?.abort();
-    },
-    [],
-  );
   const change = (field, next) => {
-    dirty.current.add(field);
-    const changesDestination = [
-      "area",
-      "city",
-      "state",
-      "pincode",
-      "country",
-    ].includes(field);
-    onChange((previous) => ({
+    const changesDestination = ["area", "city", "state", "pincode", "country", "building", "flat"].includes(field);
+    onChange(previous => ({
       ...previous,
       [field]: next,
-      ...(changesDestination
-        ? { lat: null, lng: null, accuracy: null }
-        : ["lat", "lng"].includes(field)
-          ? { accuracy: null }
-          : {}),
+      ...(changesDestination ? { lat: null, lng: null, accuracy: null } : {}),
     }));
-    if (changesDestination && value.lat != null && value.lng != null)
-      setLocation({
-        busy: location.busy,
-        error: "",
-        message:
-          "The delivery pin was cleared because your destination details changed. Review the address and add a new pin if needed.",
-      });
-  };
-  const locate = async () => {
-    if (
-      user?.role !== "customer" ||
-      disabled ||
-      location.busy ||
-      config.location?.enabled === false
-    )
-      return;
-    if (!window.isSecureContext) {
-      setLocation({
-        busy: false,
-        message: "",
-        error:
-          "Location access requires HTTPS or localhost. Enter your address below.",
-      });
-      return;
-    }
-    const request = ++requestNumber.current;
-    const controller = new AbortController();
-    lookupController.current = controller;
-    setSuggestion(null);
-    setDetectedCoordinates(null);
-    try {
-      const found = await requestCurrentLocation({
-        geolocation: navigator.geolocation,
-        signal: controller.signal,
-        onCoordinates: setDetectedCoordinates,
-        onPhase: (phase) =>
-          setLocation({
-            busy: true,
-            message:
-              phase === "permission"
-                ? "Waiting for your browser's location permission…"
-                : "Finding your area from the current device location…",
-            error: "",
-          }),
-      });
-      if (request !== requestNumber.current) return;
-      setSuggestion(found);
-      if (found.countryCode === "IN")
-        onChange((previous) =>
-          mergeLocationSuggestion(previous, found, [...dirty.current]),
-        );
-      setLocation({
-        busy: false,
-        message:
-          found.countryCode !== "IN"
-            ? "The detected location is outside India or could not be confirmed. Your delivery details were kept unchanged; enter the address manually."
-            : ["area", "city", "state", "pincode", "country"].some((field) =>
-                  dirty.current.has(field),
-                )
-              ? "Location suggestions are ready. Your manually edited destination was kept, so no location pin was attached. Use the suggestions only if they match your delivery address."
-              : `Location found${found.accuracy != null ? ` · approximate accuracy ±${found.accuracy} m` : ""}. Review the suggested area and PIN code, then enter your flat or room details.`,
-        error: "",
-      });
-    } catch (error) {
-      if (request !== requestNumber.current) return;
-      setLocation({ busy: false, message: "", error: error.message });
-    }
   };
   const field = (key, label, extra = {}) => (
     <Field
@@ -208,102 +109,6 @@ export function AddressFields({
   );
   return (
     <>
-      <div className="location-assistance">
-        <button
-          type="button"
-          className="button secondary"
-          disabled={
-            disabled || location.busy || config.location?.enabled === false
-          }
-          onClick={locate}
-        >
-          <LocateFixed size={18} />
-          {location.busy ? "Finding your location…" : "Use my current location"}
-        </button>
-        {location.busy && <button type="button" className="button secondary" onClick={() => { requestNumber.current += 1; lookupController.current?.abort(); setLocation({ busy: false, message: "Location cancelled. Retry current location or enter your address.", error: "" }); }}>Cancel location</button>}
-        <p>
-          Location coordinates are used only when you ask to locate your address.
-          Confirm the suggested PIN, city and area before saving.
-        </p>
-        {config.location?.enabled === false && (
-          <p className="muted">
-            Location assistance is disabled. You can enter every detail
-            manually.
-          </p>
-        )}
-        {location.message && (
-          <p className="location-feedback" role="status" aria-live="polite">
-            {location.message}
-          </p>
-        )}
-        <FormError error={location.error} />
-        {detectedCoordinates && (
-          <p>
-            <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(detectedCoordinates.latitude + "," + detectedCoordinates.longitude)}`}
-              target="_blank" rel="noopener noreferrer">
-              View this location in Google Maps
-            </a>
-          </p>
-        )}
-        {suggestion?.warning && (
-          <InlineNotice>{suggestion.warning}</InlineNotice>
-        )}
-        {suggestion && (
-          <div className="location-suggestion">
-            <MapPin size={17} />
-            <span>
-              {[
-                suggestion.area,
-                suggestion.city !== suggestion.area && suggestion.city,
-                suggestion.state,
-                suggestion.pincode,
-              ]
-                .filter(Boolean)
-                .join(", ") || "No address fields were returned."}
-            </span>
-            {suggestion.countryCode === "IN" && (
-              <button
-                type="button"
-                className="link-button"
-                onClick={() => {
-                  onChange((previous) =>
-                    mergeLocationSuggestion(previous, suggestion),
-                  );
-                  setLocation({
-                    busy: false,
-                    error: "",
-                    message:
-                      "Location suggestions and the matching pin were applied. Confirm the address and your flat or room details.",
-                  });
-                  for (const key of [
-                    "area",
-                    "city",
-                    "state",
-                    "pincode",
-                    "country",
-                  ])
-                    dirty.current.delete(key);
-                }}
-              >
-                Use these suggestions
-              </button>
-            )}
-          </div>
-        )}
-        {suggestion && (
-          <small>
-            Address suggestions by{" "}
-            <a
-              href="https://www.bigdatacloud.com/"
-              target="_blank"
-              rel="noreferrer"
-            >
-              BigDataCloud
-            </a>
-            . Flat, room and building details remain yours to enter.
-          </small>
-        )}
-      </div>
       <div className="form-grid">
         {showLabel &&
           field("label", "Address label", {
@@ -324,7 +129,6 @@ export function AddressFields({
           maxLength: 20,
         })}
         {field("flat", "Flat / room number", {
-          hint: "Enter manually; location cannot detect your room.",
           maxLength: 80,
         })}
         {field("building", "Building / street", {
@@ -353,15 +157,15 @@ export function AddressFields({
             {INDIAN_STATES.map(state => <option key={state} value={state}>{state}</option>)}
           </select>
         </Field>
-        <Field label="PIN code" hint="Enter any Indian six-digit PIN. Delivery coverage is checked separately at checkout.">
+        <Field label="PIN code" hint="Enter your six-digit delivery PIN.">
           <input name="pincode" value={value.pincode || ""}
             onChange={event => change("pincode", event.target.value.replace(/\D/g, "").slice(0, 6))}
             disabled={disabled} required inputMode="numeric" pattern="[1-9][0-9]{5}" maxLength={6}
             autoComplete="postal-code" placeholder="Enter 6-digit Indian PIN" />
           {value.pincode?.length === 6 && allowedPincodes.length > 0 &&
             <small role="status">{pinServiceable
-              ? "This PIN is currently serviceable."
-              : "You can save this address, but delivery to this PIN is not currently available."}</small>}
+              ? "Delivery available"
+              : "Delivery not available for this PIN."}</small>}
         </Field>
         <Field label="Country">
           <select name="country" disabled={disabled} required value="India" onChange={() => change("country", "India")}>
