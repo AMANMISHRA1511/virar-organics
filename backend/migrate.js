@@ -39,6 +39,23 @@ async function migrateNaigaonDelivery(c) {
   return { alreadyApplied: false };
 }
 
+async function migrateNearbyDelivery(c) {
+  const [applied] = await rows('SELECT version FROM schema_migrations WHERE version=9 FOR UPDATE', [], c);
+  if (applied) return;
+  const [saved] = await rows('SELECT content FROM settings WHERE id=1 FOR UPDATE', [], c);
+  if (!saved) return;
+  const settings = json(saved.content, {});
+  const zones = Array.isArray(settings.deliveryZones) ? settings.deliveryZones : [];
+  const existing = new Set(zones.flatMap(z => z.pincodes || []).map(String));
+  for (const zone of [{name:'Vasai and Naigaon',pincodes:['401201','401202','401205','401207','401208']},{name:'Nalasopara',pincodes:['401203','401209']},{name:'Virar and nearby',pincodes:['401301','401302','401303','401304','401305']}]) {
+    const pincodes = zone.pincodes.filter(pin => !existing.has(pin));
+    if (pincodes.length) zones.push({...zone,pincodes});
+  }
+  await rows('UPDATE settings SET content=? WHERE id=1', [JSON.stringify({...settings,deliveryZones:zones})], c);
+  await queueEvent(c, 'settings', {}, ['public']);
+  await rows('INSERT IGNORE INTO schema_migrations(version) VALUES(9)', [], c);
+}
+
 async function migratePostgres() {
   const connection = await db.getConnection();
   try {
@@ -54,6 +71,7 @@ async function migratePostgres() {
     const branding = await migrateBranding(connection);
     await rows('INSERT IGNORE INTO schema_migrations(version) VALUES(7)', [], connection);
     await migrateNaigaonDelivery(connection);
+    await migrateNearbyDelivery(connection);
     await connection.commit();
     console.log('PostgreSQL schema v7 ready (non-destructive, repeatable).');
     console.log(JSON.stringify({ brandingMigration: 6, ...branding }));
@@ -95,6 +113,7 @@ try {
   const branding = await transaction(migrateBranding);
   await rows('INSERT IGNORE INTO schema_migrations(version) VALUES(7)');
   await transaction(migrateNaigaonDelivery);
+  await transaction(migrateNearbyDelivery);
   console.log('MySQL schema v7 ready (non-destructive, repeatable).');
   console.log(JSON.stringify({ brandingMigration: 6, ...branding }));
  }
