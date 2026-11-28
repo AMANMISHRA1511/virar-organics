@@ -188,41 +188,45 @@ export function requestCurrentLocation({
             longitude: String(coordinates.longitude),
             localityLanguage: "en",
           }).toString();
+          // BigDataCloud's free reverse-geocode endpoint is designed for
+          // permission-based, device-originated browser requests, NOT servers.
+          // Try it first so a sleeping Render Free instance cannot delay it.
           timer = setTimeout(() => {
             requestController.abort();
-            fail(
-              new Error(
-                "The address lookup timed out. Enter your address manually, or try again.",
-              ),
-            );
-          }, 10000);
-          // Prefer the app's same-origin lookup to avoid third-party browser
-          // blocking; only use the public provider directly if the proxy fails.
+            fail(new Error("Location services did not respond. Your GPS pin was still found; please enter the area and PIN manually."));
+          }, 30000);
           const proxy = "/api/location/reverse?" + new URLSearchParams({
             latitude: String(coordinates.latitude),
             longitude: String(coordinates.longitude),
           });
           let data;
           try {
-            const response = await fetchImpl(proxy, {
-              credentials: "same-origin",
-              referrerPolicy: "no-referrer",
+            const direct = await fetchImpl(url, {
+              credentials: "omit",
               signal: requestController.signal,
+              headers: { Accept: "application/json" },
             });
-            if (!response.ok) throw new Error("Proxy unavailable");
-            data = await response.json();
+            if (!direct.ok) throw new Error("Direct reverse lookup unavailable");
+            data = await direct.json();
+            if (!data || data.error || data.errorCode || !data.countryCode) {
+              throw new Error("Direct reverse lookup returned incomplete data");
+            }
           } catch {
-            if (requestController.signal.aborted) throw new Error("The address lookup timed out. Enter your address manually.");
+            if (requestController.signal.aborted) {
+              throw new Error("The location lookup timed out. Your GPS pin is available; please enter area and PIN manually.");
+            }
+            // Google Geocoding is available via this backend route only when
+            // a Google Maps API key has been explicitly configured there.
             try {
-              const fallback = await fetchImpl(url, {
-                credentials: "omit",
-                referrerPolicy: "no-referrer",
+              const fallback = await fetchImpl(proxy, {
+                credentials: "same-origin",
                 signal: requestController.signal,
+                headers: { Accept: "application/json" },
               });
-              if (!fallback.ok) throw new Error("Provider unavailable");
+              if (!fallback.ok) throw new Error("Server lookup unavailable");
               data = await fallback.json();
             } catch {
-              throw new Error("Your position was found but area lookup could not load. Enter the PIN, city and area manually, or retry.");
+              throw new Error("We found your GPS position, but the free address service could not identify the area. Please enter your PIN, city and area manually.");
             }
           }
           const suggestion = parseLocationSuggestion(data, coordinates);
