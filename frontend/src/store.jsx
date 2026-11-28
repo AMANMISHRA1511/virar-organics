@@ -1495,17 +1495,7 @@ export function Checkout() {
                 <span>Save now to use these details for your next order.</span>
               </div>
               <FormError error={addressError} />
-              {settings.deliveryZones?.length > 0 && (
-                <p className="muted delivery-zones">
-                  Delivery zones:{" "}
-                  {settings.deliveryZones
-                    .map(
-                      (zone) =>
-                        `${zone.name}${zone.pincodes?.length ? ` (${zone.pincodes.join(", ")})` : ""}`,
-                    )
-                    .join(" · ")}
-                </p>
-              )}
+
             </section>
             <section className="form-card">
               <div className="card-section-title">
